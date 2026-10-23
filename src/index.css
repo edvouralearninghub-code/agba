@@ -1,0 +1,81 @@
+@import "tailwindcss";
+
+:root {
+  --agba-indigo-950: #0E1030;
+  --agba-indigo-800: #1B1F5E;
+  --agba-indigo-600: #3B3FA8;
+  --agba-gold-500: #D9A441;
+  --agba-cream-50: #FAF6EC;
+  --agba-ink-900: #0F1226;
+  --agba-success: #2E8B57;
+  --agba-warning: #C9821B;
+  --agba-danger: #C2413B;
+
+  --font-display: 'Fraunces', Georgia, serif;
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+}
+
+body {
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+.font-display {
+  font-family: var(--font-display);
+}
+
+.font-sans {
+  font-family: var(--font-sans);
+}
+
+.font-mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+@keyframes agbaFlowDash {
+  to {
+    stroke-dashoffset: -24;
+  }
+}
+
+@keyframes agbaSoftNodePulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(217, 164, 65, 0.38);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(217, 164, 65, 0);
+  }
+}
+
+.agba-flow-active {
+  stroke-dasharray: 6 6;
+  animation: agbaFlowDash 0.85s linear infinite;
+}
+
+.agba-node-executing {
+  animation: agbaSoftNodePulse 1.6s ease-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .agba-flow-active {
+    animation: none !important;
+  }
+  .agba-node-executing {
+    animation: none !important;
+  }
+}
