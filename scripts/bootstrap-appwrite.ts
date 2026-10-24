@@ -96,7 +96,6 @@ export const LEAST_PRIVILEGE_APPWRITE_SCOPES = [
   'users.write',
   'teams.read',
   'teams.write',
-  'sessions.write',
   'databases.read',
   'databases.write',
   'tables.read',
@@ -118,6 +117,40 @@ export const LEAST_PRIVILEGE_APPWRITE_SCOPES = [
   'files.read',
   'files.write',
 ];
+
+export function extractAppwriteSessionAuthHeaders(
+  headers: Headers
+): { Cookie: string; 'X-Fallback-Cookies'?: string } {
+  const rawSetCookies: string[] =
+    typeof (headers as unknown as { getSetCookie?: () => string[] }).getSetCookie === 'function'
+      ? (headers as unknown as { getSetCookie: () => string[] }).getSetCookie()
+      : [headers.get('set-cookie') || ''];
+
+  const cookiePairs: string[] = [];
+  const fallbackMap: Record<string, string> = {};
+
+  for (const raw of rawSetCookies) {
+    const matches = raw.match(/a_session_[a-zA-Z0-9_-]+=[^;\s,]+/g) || [];
+    for (const pair of matches) {
+      cookiePairs.push(pair);
+      const eqIdx = pair.indexOf('=');
+      if (eqIdx > 0) {
+        const k = pair.slice(0, eqIdx);
+        const v = pair.slice(eqIdx + 1);
+        fallbackMap[k] = v;
+      }
+    }
+  }
+
+  const explicitFallback = headers.get('x-fallback-cookies');
+  const fallbackHeader =
+    explicitFallback || (Object.keys(fallbackMap).length > 0 ? JSON.stringify(fallbackMap) : undefined);
+
+  return {
+    Cookie: cookiePairs.join('; '),
+    ...(fallbackHeader ? { 'X-Fallback-Cookies': fallbackHeader } : {}),
+  };
+}
 
 async function callAppwriteAdminApi(
   endpoint: string,
@@ -165,46 +198,52 @@ export async function autoInitializeFreshAppwriteInstance(params: {
   const email = params.adminEmail || process.env.APPWRITE_ADMIN_EMAIL || 'admin@agba.local';
   const password = params.adminPassword || process.env.APPWRITE_ADMIN_PASSWORD || 'AgbaRootPass2026!Secure';
 
-  // 1. Register root account in Console project (409 if already exists)
-  await fetch(`${base}/account`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-Appwrite-Project': 'console' },
-    body: JSON.stringify({
-      userId: 'admin_root',
-      email,
-      password,
-      name: 'AGBA Platform Root',
-    }),
-  });
+  let sessionAuth: { Cookie: string; 'X-Fallback-Cookies'?: string } = { Cookie: '' };
 
-  // 2. Create Console email session and capture session cookie
-  const sessionRes = await fetch(`${base}/account/sessions/email`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-Appwrite-Project': 'console' },
-    body: JSON.stringify({ email, password }),
-  });
+  for (let attempt = 1; attempt <= 12; attempt++) {
+    // 1. Register root account in Console project (409 if already exists)
+    const regRes = await fetch(`${base}/account`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Appwrite-Project': 'console' },
+      body: JSON.stringify({
+        userId: 'admin_root',
+        email,
+        password,
+        name: 'AGBA Platform Root',
+      }),
+    });
 
-  const setCookie = sessionRes.headers.get('set-cookie') || '';
-  const cookieHeader = setCookie
-    .split(',')
-    .map((part) => part.split(';')[0].trim())
-    .filter((kv) => kv.startsWith('a_session_'))
-    .join('; ');
+    // 2. Create Console email session and capture session cookie + fallback cookies
+    const sessionRes = await fetch(`${base}/account/sessions/email`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Appwrite-Project': 'console' },
+      body: JSON.stringify({ email, password }),
+    });
 
-  if (!cookieHeader) {
-    throw new Error(
-      `Failed to obtain Console session cookie from ${base}/account/sessions/email (HTTP ${sessionRes.status}).`
+    sessionAuth = extractAppwriteSessionAuthHeaders(sessionRes.headers);
+    if (sessionAuth.Cookie || sessionAuth['X-Fallback-Cookies']) {
+      break;
+    }
+
+    const errText = await sessionRes.text().catch(() => '');
+    console.log(
+      `[AUTO-INIT] Waiting for Console session readiness (attempt ${attempt}/12, reg=${regRes.status}, session=${sessionRes.status}: ${errText.slice(0, 120)})...`
     );
+    await new Promise((r) => setTimeout(r, 2500));
   }
 
-  const consoleHeaders = {
+  if (!sessionAuth.Cookie && !sessionAuth['X-Fallback-Cookies']) {
+    throw new Error(`Failed to obtain Console session cookie from ${base}/account/sessions/email.`);
+  }
+
+  const consoleHeaders: Record<string, string> = {
     'Content-Type': 'application/json',
     'X-Appwrite-Project': 'console',
-    Cookie: cookieHeader,
+    ...sessionAuth,
   };
 
   // 3. Ensure Organization Team (`org_agba`) exists
-  await fetch(`${base}/teams`, {
+  const teamRes = await fetch(`${base}/teams`, {
     method: 'POST',
     headers: consoleHeaders,
     body: JSON.stringify({
@@ -212,9 +251,20 @@ export async function autoInitializeFreshAppwriteInstance(params: {
       name: 'Trendtactics Digital Organization',
     }),
   });
+  if (!teamRes.ok && teamRes.status !== 409) {
+    // Fallback for Appwrite setups using /organizations
+    await fetch(`${base}/organizations`, {
+      method: 'POST',
+      headers: consoleHeaders,
+      body: JSON.stringify({
+        organizationId: 'org_agba',
+        name: 'Trendtactics Digital Organization',
+      }),
+    }).catch(() => undefined);
+  }
 
   // 4. Create Project `agba-core` (409 if already exists)
-  await fetch(`${base}/projects`, {
+  let projRes = await fetch(`${base}/projects`, {
     method: 'POST',
     headers: consoleHeaders,
     body: JSON.stringify({
@@ -224,23 +274,63 @@ export async function autoInitializeFreshAppwriteInstance(params: {
       region: 'default',
     }),
   });
-
-  // 5. Create Least-Privilege Server API Key
-  const keyRes = await fetch(`${base}/projects/${params.projectId}/keys`, {
-    method: 'POST',
-    headers: consoleHeaders,
-    body: JSON.stringify({
-      name: 'agba-express-least-privilege-key',
-      scopes: LEAST_PRIVILEGE_APPWRITE_SCOPES,
-    }),
-  });
-  const keyData = (await keyRes.json()) as { secret?: string };
-  if (!keyData.secret) {
-    throw new Error(
-      `Failed to mint Appwrite Server API key for project "${params.projectId}" (HTTP ${keyRes.status}).`
-    );
+  if (!projRes.ok && projRes.status !== 409) {
+    projRes = await fetch(`${base}/projects`, {
+      method: 'POST',
+      headers: consoleHeaders,
+      body: JSON.stringify({
+        projectId: params.projectId,
+        name: params.projectName,
+        teamId: 'org_agba',
+      }),
+    });
   }
-  return keyData.secret;
+
+  // 5. Create Least-Privilege Server API Key (try TablesDB + Classic scopes, fallback to Classic scopes if needed)
+  const scopeCandidates = [
+    LEAST_PRIVILEGE_APPWRITE_SCOPES,
+    [
+      'users.read',
+      'users.write',
+      'teams.read',
+      'teams.write',
+      'databases.read',
+      'databases.write',
+      'collections.read',
+      'collections.write',
+      'attributes.read',
+      'attributes.write',
+      'indexes.read',
+      'indexes.write',
+      'documents.read',
+      'documents.write',
+      'buckets.read',
+      'buckets.write',
+      'files.read',
+      'files.write',
+    ],
+  ];
+
+  let lastKeyError = '';
+  for (const scopes of scopeCandidates) {
+    const keyRes = await fetch(`${base}/projects/${params.projectId}/keys`, {
+      method: 'POST',
+      headers: consoleHeaders,
+      body: JSON.stringify({
+        name: 'agba-express-least-privilege-key',
+        scopes,
+      }),
+    });
+    const keyData = (await keyRes.json().catch(() => ({}))) as { secret?: string; message?: string };
+    if (keyData.secret) {
+      return keyData.secret;
+    }
+    lastKeyError = `HTTP ${keyRes.status}: ${JSON.stringify(keyData)}`;
+  }
+
+  throw new Error(
+    `Failed to mint Appwrite Server API key for project "${params.projectId}" (${lastKeyError}).`
+  );
 }
 
 async function waitForColumnsAvailable(
@@ -251,15 +341,25 @@ async function waitForColumnsAvailable(
   tableId: string,
   expectedCount: number
 ): Promise<void> {
-  for (let attempt = 0; attempt < 30; attempt++) {
-    const res = await callAppwriteAdminApi(
+  for (let attempt = 0; attempt < 35; attempt++) {
+    let res = await callAppwriteAdminApi(
       endpoint,
       projectId,
       apiKey,
       `/tablesdb/${databaseId}/tables/${tableId}/columns`,
       'GET'
     );
-    const columns = (res.data.columns as { status?: string }[] | undefined) || [];
+    if (!res.ok) {
+      res = await callAppwriteAdminApi(
+        endpoint,
+        projectId,
+        apiKey,
+        `/databases/${databaseId}/collections/${tableId}/attributes`,
+        'GET'
+      );
+    }
+    const columns =
+      ((res.data.columns || res.data.attributes) as { status?: string }[] | undefined) || [];
     const availableCount = columns.filter((c) => c.status === 'available').length;
     if (availableCount >= expectedCount) {
       return;
@@ -277,6 +377,11 @@ async function main() {
   const projectId = process.env.APPWRITE_PROJECT_ID || manifest.projectId;
   let apiKey = process.env.APPWRITE_API_KEY || '';
   const autoInit = process.argv.includes('--auto-init') || process.env.APPWRITE_AUTO_INIT === 'true';
+  const outputEnvIndex = process.argv.indexOf('--output-env');
+  const outputEnvPath =
+    outputEnvIndex !== -1 && process.argv[outputEnvIndex + 1]
+      ? process.argv[outputEnvIndex + 1]
+      : null;
 
   console.log('=== AGBA Appwrite 2.6.1 TablesDB & Storage Bootstrap Script ===');
   console.log(`Target Endpoint : ${endpoint}`);
@@ -295,10 +400,23 @@ async function main() {
       projectId,
       projectName: manifest.projectName,
     });
-    console.log('[AUTO-INIT] Provisioned project "agba-core" and least-privilege Server API key.');
+    console.log(`[AUTO-INIT] Provisioned project "${projectId}" and least-privilege Server API key.`);
     if (process.env.GITHUB_ENV) {
       fs.appendFileSync(process.env.GITHUB_ENV, `APPWRITE_API_KEY=${apiKey}\n`, 'utf8');
     }
+  }
+
+  if (outputEnvPath && apiKey) {
+    const envFileContent = [
+      `APPWRITE_ENDPOINT=${endpoint}`,
+      `APPWRITE_PROJECT_ID=${projectId}`,
+      `APPWRITE_DATABASE_ID=${manifest.databases[0]?.$id || 'agba_core'}`,
+      `APPWRITE_BUCKET_ID=${manifest.buckets[0]?.$id || 'rag_files'}`,
+      `APPWRITE_API_KEY=${apiKey}`,
+      '',
+    ].join('\n');
+    fs.writeFileSync(path.resolve(rootDir, outputEnvPath), envFileContent, 'utf8');
+    console.log(`[AUTO-INIT] Wrote runtime credentials to ${outputEnvPath}`);
   }
 
   if (!apiKey || apiKey === 'YOUR_APPWRITE_SERVER_API_KEY' || apiKey === 'YOUR_APPWRITE_LEAST_PRIVILEGE_SERVER_API_KEY') {
@@ -313,17 +431,24 @@ async function main() {
 
   // 1. Provision Databases
   for (const db of manifest.databases) {
-    const res = await callAppwriteAdminApi(endpoint, projectId, apiKey, '/tablesdb', 'POST', {
+    let res = await callAppwriteAdminApi(endpoint, projectId, apiKey, '/tablesdb', 'POST', {
       databaseId: db.$id,
       name: db.name,
       enabled: db.enabled,
     });
+    if (!res.ok) {
+      res = await callAppwriteAdminApi(endpoint, projectId, apiKey, '/databases', 'POST', {
+        databaseId: db.$id,
+        name: db.name,
+        enabled: db.enabled,
+      });
+    }
     console.log(`[Database] ${db.$id}: HTTP ${res.status} (${res.ok ? 'READY' : 'FAILED'})`);
   }
 
-  // 2. Provision Tables, Columns, and Indexes via Appwrite 2.6.1 TablesDB API
+  // 2. Provision Tables, Columns, and Indexes via Appwrite 2.6.1 TablesDB API (with Classic fallback)
   for (const table of manifest.tables) {
-    const tblRes = await callAppwriteAdminApi(
+    let tblRes = await callAppwriteAdminApi(
       endpoint,
       projectId,
       apiKey,
@@ -337,21 +462,95 @@ async function main() {
         enabled: true,
       }
     );
+    if (!tblRes.ok) {
+      tblRes = await callAppwriteAdminApi(
+        endpoint,
+        projectId,
+        apiKey,
+        `/databases/${table.databaseId}/collections`,
+        'POST',
+        {
+          collectionId: table.$id,
+          name: table.name,
+          permissions: [],
+          documentSecurity: table.rowSecurity,
+          enabled: true,
+        }
+      );
+    }
     console.log(`[Table] ${table.$id}: HTTP ${tblRes.status} (${tblRes.ok ? 'READY' : 'FAILED'})`);
 
     for (const col of table.columns) {
-      const colEndpoint =
-        col.type === 'integer'
-          ? `/tablesdb/${table.databaseId}/tables/${table.$id}/columns/integer`
-          : col.type === 'datetime'
-            ? `/tablesdb/${table.databaseId}/tables/${table.$id}/columns/datetime`
-            : `/tablesdb/${table.databaseId}/tables/${table.$id}/columns/string`;
-
-      await callAppwriteAdminApi(endpoint, projectId, apiKey, colEndpoint, 'POST', {
-        key: col.key,
-        size: col.size ?? 255,
-        required: col.required,
-      });
+      if (col.type === 'integer') {
+        const r = await callAppwriteAdminApi(
+          endpoint,
+          projectId,
+          apiKey,
+          `/tablesdb/${table.databaseId}/tables/${table.$id}/columns/integer`,
+          'POST',
+          { key: col.key, required: col.required }
+        );
+        if (!r.ok) {
+          await callAppwriteAdminApi(
+            endpoint,
+            projectId,
+            apiKey,
+            `/databases/${table.databaseId}/collections/${table.$id}/attributes/integer`,
+            'POST',
+            { key: col.key, required: col.required }
+          );
+        }
+      } else if (col.type === 'datetime') {
+        const r = await callAppwriteAdminApi(
+          endpoint,
+          projectId,
+          apiKey,
+          `/tablesdb/${table.databaseId}/tables/${table.$id}/columns/datetime`,
+          'POST',
+          { key: col.key, required: col.required }
+        );
+        if (!r.ok) {
+          await callAppwriteAdminApi(
+            endpoint,
+            projectId,
+            apiKey,
+            `/databases/${table.databaseId}/collections/${table.$id}/attributes/datetime`,
+            'POST',
+            { key: col.key, required: col.required }
+          );
+        }
+      } else {
+        // String / varchar column
+        const payload = { key: col.key, size: col.size ?? 255, required: col.required };
+        let r = await callAppwriteAdminApi(
+          endpoint,
+          projectId,
+          apiKey,
+          `/tablesdb/${table.databaseId}/tables/${table.$id}/columns/varchar`,
+          'POST',
+          payload
+        );
+        if (!r.ok) {
+          r = await callAppwriteAdminApi(
+            endpoint,
+            projectId,
+            apiKey,
+            `/tablesdb/${table.databaseId}/tables/${table.$id}/columns/string`,
+            'POST',
+            payload
+          );
+        }
+        if (!r.ok) {
+          await callAppwriteAdminApi(
+            endpoint,
+            projectId,
+            apiKey,
+            `/databases/${table.databaseId}/collections/${table.$id}/attributes/string`,
+            'POST',
+            payload
+          );
+        }
+      }
     }
 
     await waitForColumnsAvailable(
@@ -364,7 +563,7 @@ async function main() {
     );
 
     for (const idx of table.indexes) {
-      await callAppwriteAdminApi(
+      const idxRes = await callAppwriteAdminApi(
         endpoint,
         projectId,
         apiKey,
@@ -374,8 +573,24 @@ async function main() {
           key: idx.key,
           type: idx.type,
           columns: idx.columns,
+          orders: idx.columns.map(() => 'ASC'),
         }
       );
+      if (!idxRes.ok) {
+        await callAppwriteAdminApi(
+          endpoint,
+          projectId,
+          apiKey,
+          `/databases/${table.databaseId}/collections/${table.$id}/indexes`,
+          'POST',
+          {
+            key: idx.key,
+            type: idx.type,
+            attributes: idx.columns,
+            orders: idx.columns.map(() => 'ASC'),
+          }
+        );
+      }
     }
   }
 
