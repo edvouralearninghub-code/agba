@@ -1,0 +1,41 @@
+version: "3.9"
+
+services:
+  agba-platform:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: agba-platform
+    restart: unless-stopped
+    mem_limit: 768m
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+    volumes:
+      - agba_data:/app/data
+    depends_on:
+      - agba-pgvector
+
+  # Self-hosted PostgreSQL 16 + pgvector container (768, 1024, and 1536 embedding tables)
+  # (Or point NEON_POSTGRES_HOST in .env to your neon.tech Cloud Free Tier instance)
+  agba-pgvector:
+    image: pgvector/pgvector:pg16
+    container_name: agba-pgvector
+    restart: unless-stopped
+    mem_limit: 1024m
+    environment:
+      POSTGRES_USER: ${NEON_POSTGRES_USER:-agba_user}
+      POSTGRES_PASSWORD: ${NEON_POSTGRES_PASSWORD:-agba_local_password}
+      POSTGRES_DB: ${NEON_POSTGRES_DB:-agba_vectors}
+    ports:
+      - "5432:5432"
+    volumes:
+      - agba_pgdata:/var/lib/postgresql/data
+
+volumes:
+  agba_data:
+  agba_pgdata:

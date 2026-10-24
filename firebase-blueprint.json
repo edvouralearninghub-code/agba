@@ -1,0 +1,263 @@
+{
+  "entities": {
+    "Admin": {
+      "title": "Admin",
+      "description": "Trusted administrator marker document.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Firebase Auth UID of the administrator."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp."
+        }
+      },
+      "required": ["uid", "createdAt"]
+    },
+    "Workspace": {
+      "title": "Workspace",
+      "description": "Multi-tenant AGBA workspace owned by a verified user.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Unique workspace identifier."
+        },
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "UID of the workspace owner."
+        },
+        "name": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 80,
+          "description": "Human-readable workspace name."
+        },
+        "slug": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 80,
+          "pattern": "^[a-z0-9\\-]+$",
+          "description": "URL-safe workspace slug."
+        },
+        "planTier": {
+          "type": "string",
+          "enum": ["free", "builder", "team"],
+          "maxLength": 16,
+          "description": "Workspace subscription tier."
+        },
+        "currency": {
+          "type": "string",
+          "enum": ["NGN", "USD"],
+          "maxLength": 8,
+          "description": "Billing currency."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of workspace creation."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of last update."
+        }
+      },
+      "required": ["id", "ownerId", "name", "slug", "planTier", "currency", "createdAt", "updatedAt"]
+    },
+    "Workflow": {
+      "title": "Workflow",
+      "description": "Saved AGBA Studio AI workflow scoped to a workspace.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Unique workflow identifier."
+        },
+        "workspace_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Parent workspace ID."
+        },
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "UID of the creator."
+        },
+        "name": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 120,
+          "description": "Workflow title."
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500,
+          "description": "Workflow summary."
+        },
+        "category": {
+          "type": "string",
+          "enum": ["Starter", "RAG", "Multi-Agent"],
+          "maxLength": 32,
+          "description": "Workflow category."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["draft", "published", "archived"],
+          "maxLength": 16,
+          "description": "Lifecycle status of the workflow."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server update timestamp."
+        }
+      },
+      "required": ["id", "workspace_id", "ownerId", "name", "description", "category", "status", "createdAt", "updatedAt"]
+    },
+    "FreeStackEntry": {
+      "title": "FreeStackEntry",
+      "description": "Workspace-scoped Free Stack CMS directory entry.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Unique entry identifier."
+        },
+        "workspace_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Parent workspace ID."
+        },
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "UID of the administrator who created the entry."
+        },
+        "serviceName": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 120,
+          "description": "Name of the free developer or AI service."
+        },
+        "description": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 400,
+          "description": "Overview of the service."
+        },
+        "category": {
+          "type": "string",
+          "enum": [
+            "Cloud & Compute",
+            "Databases & Vector Stores",
+            "Auth & Identity",
+            "AI & Model APIs",
+            "Hosting & CDN",
+            "Email & Notifications",
+            "Payments & Billing",
+            "Monitoring & Logs",
+            "CI/CD & DevOps",
+            "DNS & Domains",
+            "Storage & Media"
+          ],
+          "maxLength": 64,
+          "description": "Free Stack directory category."
+        },
+        "freeTierSummary": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 500,
+          "description": "Summary of always-free quotas or open-source license."
+        },
+        "officialPricingUrl": {
+          "type": "string",
+          "minLength": 8,
+          "maxLength": 300,
+          "pattern": "^https://.+",
+          "description": "Official HTTPS pricing or repository URL."
+        },
+        "verifiedOn": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 10,
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+          "description": "ISO date YYYY-MM-DD when the entry was verified."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server update timestamp."
+        }
+      },
+      "required": [
+        "id",
+        "workspace_id",
+        "ownerId",
+        "serviceName",
+        "description",
+        "category",
+        "freeTierSummary",
+        "officialPricingUrl",
+        "verifiedOn",
+        "createdAt",
+        "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/admins/{adminUid}": {
+      "schema": { "$ref": "#/entities/Admin" },
+      "description": "Trusted administrator markers."
+    },
+    "/workspaces/{workspaceId}": {
+      "schema": { "$ref": "#/entities/Workspace" },
+      "description": "Top-level multi-tenant workspaces."
+    },
+    "/workspaces/{workspaceId}/workflows/{workflowId}": {
+      "schema": { "$ref": "#/entities/Workflow" },
+      "description": "Saved Studio AI workflows belonging to a workspace."
+    },
+    "/workspaces/{workspaceId}/free_stack_entries/{entryId}": {
+      "schema": { "$ref": "#/entities/FreeStackEntry" },
+      "description": "Workspace-scoped Free Stack CMS directory entries."
+    }
+  }
+}

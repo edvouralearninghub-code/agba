@@ -175,11 +175,11 @@ export const FreeStackCmsEditor: React.FC<FreeStackCmsEditorProps> = ({
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-agba-workspace-id': activeWorkspace.id,
+          'x-agba-workspace-id': scopedWorkspaceId,
           'x-agba-role': activeWorkspace.memberRole,
         },
         body: JSON.stringify({
-          workspace_id: activeWorkspace.id,
+          workspace_id: scopedWorkspaceId,
         }),
       });
       const data = await res.json();
@@ -223,11 +223,11 @@ export const FreeStackCmsEditor: React.FC<FreeStackCmsEditorProps> = ({
       const res = await fetch(
         `/api/cms/free-stack/${encodeURIComponent(
           entry.id
-        )}?workspace_id=${encodeURIComponent(activeWorkspace.id)}`,
+        )}?workspace_id=${encodeURIComponent(scopedWorkspaceId)}`,
         {
           method: 'DELETE',
           headers: {
-            'x-agba-workspace-id': activeWorkspace.id,
+            'x-agba-workspace-id': scopedWorkspaceId,
             'x-agba-role': activeWorkspace.memberRole,
           },
         }

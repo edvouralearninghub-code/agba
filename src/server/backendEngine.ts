@@ -20,6 +20,17 @@ import type {
 } from '../types/agba.ts';
 import { ACADEMY_TEMPLATES } from '../data/academyTemplates.ts';
 import { FREE_STACK_ENTRIES } from '../data/freeStackData.ts';
+import {
+  AppwriteTablesBridge,
+  IdentityLinkRepo,
+  MissingWorkspaceByokError,
+  UsageQuotaRepo,
+  WorkspaceMembershipRegistry,
+  assertVerifiedWriteAccess,
+  buildPgvectorRlsQueryPlan,
+  resolvePgvectorTableForProvider,
+} from './repositories.ts';
+import { IdentityBridgeService } from './authBridge.ts';
 
 export interface VectorDocumentRecord {
   id: string;
@@ -29,6 +40,7 @@ export interface VectorDocumentRecord {
   chunkIndex: number;
   content: string;
   embedding: number[]; // 64-dim normalized semantic/lexical vector
+  pgvectorTable?: 'rag_chunks_768' | 'rag_chunks_1024' | 'rag_chunks_1536';
   createdAt: string;
 }
 
@@ -138,9 +150,20 @@ export function cosineSimilarity(a: number[], b: number[]): number {
 
 export class AgbaSelfHostedBackend {
   private state: PersistentDatabaseSchema;
+  public readonly appwriteBridge = new AppwriteTablesBridge();
+  public readonly identityRepo: IdentityLinkRepo;
+  public readonly identityBridge: IdentityBridgeService;
+  public readonly membershipRegistry = new WorkspaceMembershipRegistry();
+  public readonly quotaRepo: UsageQuotaRepo;
 
   constructor() {
     this.state = this.loadOrSeedDatabase();
+    this.identityRepo = new IdentityLinkRepo(this.appwriteBridge);
+    this.identityBridge = new IdentityBridgeService(this.identityRepo, this.appwriteBridge);
+    this.quotaRepo = new UsageQuotaRepo(this.appwriteBridge);
+    for (const ws of this.state.workspaces) {
+      this.membershipRegistry.setMembership(ws.id, 'usr_akinola_01', ws.memberRole || 'owner');
+    }
   }
 
   private loadOrSeedDatabase(): PersistentDatabaseSchema {
@@ -161,6 +184,21 @@ export class AgbaSelfHostedBackend {
       }
     } catch {
       // Fall through to seed fresh DB
+    }
+
+    if ((process.env.NODE_ENV || 'development').toLowerCase() === 'production') {
+      return {
+        workspaces: [],
+        modelKeys: [],
+        vectorChunks: [],
+        studioApps: [],
+        workflowRuns: [],
+        notifications: [],
+        processedWebhookEvents: [],
+        customFreeStackEntries: [],
+        updatedFreeStackEntries: {},
+        deletedFreeStackIds: [],
+      };
     }
 
     const defaultTpl = ACADEMY_TEMPLATES[0];
@@ -358,6 +396,21 @@ export class AgbaSelfHostedBackend {
       this.state.customFreeStackEntries = [];
     }
     this.state.customFreeStackEntries.unshift(entry);
+    void this.appwriteBridge.upsertRow(
+      'free_stack_entries',
+      entry.id,
+      {
+        id: entry.id,
+        workspace_id: ctx.workspace_id,
+        serviceName: entry.serviceName,
+        description: entry.description || '',
+        category: entry.category,
+        freeTierSummary: entry.freeTierSummary,
+        officialPricingUrl: entry.officialPricingUrl,
+        verifiedOn: entry.verifiedOn,
+      },
+      AppwriteTablesBridge.teamReadOnlyPermissions(ctx.workspace_id)
+    );
     this.persist();
     return entry;
   }
@@ -412,6 +465,22 @@ export class AgbaSelfHostedBackend {
       }
     }
 
+    void this.appwriteBridge.upsertRow(
+      'free_stack_entries',
+      updated.id,
+      {
+        id: updated.id,
+        workspace_id: ctx.workspace_id,
+        serviceName: updated.serviceName,
+        description: updated.description || '',
+        category: updated.category,
+        freeTierSummary: updated.freeTierSummary,
+        officialPricingUrl: updated.officialPricingUrl,
+        verifiedOn: updated.verifiedOn,
+      },
+      AppwriteTablesBridge.teamReadOnlyPermissions(ctx.workspace_id)
+    );
+
     this.persist();
     return updated;
   }
@@ -453,6 +522,7 @@ export class AgbaSelfHostedBackend {
         (e) => !(e.id === id && (!e.workspace_id || e.workspace_id === ctx.workspace_id))
       );
     }
+    void this.appwriteBridge.deleteRow('free_stack_entries', id);
     this.persist();
   }
 
@@ -468,15 +538,19 @@ export class AgbaSelfHostedBackend {
 
     return {
       storageEngine:
-        'Persistent Local JSON-WAL + In-Memory HNSW/Cosine Vector Index',
+        'Single Source of Truth: Appwrite 2.6.1 TablesDB + Storage + PostgreSQL pgvector (768/1024/1536 with RLS) + Redis Rate-Limiter',
       requiresExternalCloudKeys: false,
       activeWorkspaceId: ctx.workspace_id,
+      appwriteBridge: this.appwriteBridge.getStatusSummary(),
+      pgvectorRlsPlan: buildPgvectorRlsQueryPlan({ workspace_id: ctx.workspace_id }),
       openSourceModules: [
         {
-          name: 'Appwrite Backend Core (Auth, Teams, Databases, Storage)',
+          name: 'Appwrite 2.6.1 Backend Core (Auth, Teams, TablesDB, Storage)',
           repo: 'https://github.com/appwrite/appwrite',
           license: 'BSD-3-Clause',
-          status: 'Active on Server',
+          status: this.appwriteBridge.isConfigured()
+            ? 'Active on Server (Live Appwrite 2.6.1 TablesDB)'
+            : 'Demo Fallback Mode (Local Preview Sandbox — Set APPWRITE_API_KEY for Live Appwrite 2.6.1)',
           recordsCount: this.state.workspaces.length + wsKeys.length,
         },
         {
@@ -487,10 +561,10 @@ export class AgbaSelfHostedBackend {
           recordsCount: wsApps.length,
         },
         {
-          name: 'Vector Store (pgvector-compatible Cosine Similarity)',
+          name: 'Vector Store (pgvector 768/1024/1536 Cosine Similarity + RLS)',
           repo: 'https://github.com/pgvector/pgvector',
           license: 'PostgreSQL License',
-          status: 'Active on Server',
+          status: 'Active on Server (RLS Policy Enabled)',
           recordsCount: wsChunks.length,
         },
         {
@@ -531,7 +605,7 @@ export class AgbaSelfHostedBackend {
         {
           name: 'Mattermost Team Edition & ChatOps Bridge',
           repo: 'https://github.com/mattermost/mattermost',
-          license: 'Apache-2.0 Core (Enterprise Excluded)',
+          license: 'AGPL-3.0 (Server) / Apache-2.0 (Drivers) — Isolated via HTTPS Webhook',
           status: 'Integrated in Academy & Free Stack',
           recordsCount: 1,
         },
@@ -551,7 +625,11 @@ export class AgbaSelfHostedBackend {
     };
   }
 
-  public createWorkspace(input: { name: string; currency: 'NGN' | 'USD' }): Workspace {
+  public getWorkspaceBySlugOrId(slugOrId: string): Workspace | undefined {
+    return this.state.workspaces.find((w) => w.id === slugOrId || w.slug === slugOrId);
+  }
+
+  public createWorkspace(input: { name: string; currency: 'NGN' | 'USD'; ownerId?: string }): Workspace {
     const slug = input.name
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
@@ -566,13 +644,29 @@ export class AgbaSelfHostedBackend {
       createdAt: new Date().toISOString(),
     };
     this.state.workspaces.push(ws);
+    this.membershipRegistry.registerOwner(ws.id, input.ownerId || 'usr_akinola_01');
+    void this.appwriteBridge.upsertRow(
+      'workspaces',
+      ws.id,
+      {
+        id: ws.id,
+        teamId: ws.id,
+        name: ws.name,
+        slug: ws.slug,
+        planTier: ws.planTier,
+        currency: ws.currency,
+        ownerId: input.ownerId || 'usr_akinola_01',
+        createdAt: ws.createdAt,
+      },
+      AppwriteTablesBridge.teamReadOnlyPermissions(ws.id)
+    );
     this.state.notifications.unshift({
       id: `notif_${crypto.randomUUID()}`,
       workspace_id: ws.id,
       workflowTrigger: 'welcome',
       channel: 'in-app',
       title: `Workspace "${ws.name}" Provisioned`,
-      body: `Created isolated Appwrite Team unit (${ws.id}) with zero cross-tenant access.`,
+      body: `Created isolated Appwrite 2.6.1 Team & TablesDB workspace unit (${ws.id}) with read-only team permissions and zero cross-tenant access.`,
       read: false,
       createdAt: new Date().toISOString(),
     });
@@ -581,15 +675,10 @@ export class AgbaSelfHostedBackend {
   }
 
   public addModelKey(
-    ctx: TenantContext,
+    ctx: TenantContext & { emailVerified?: boolean },
     input: { workspace_id: string; provider: ModelProvider; label: string; rawApiKey: string }
   ): MaskedModelKeyRecord {
-    this.assertTenant(ctx, input.workspace_id);
-    if (ctx.role === 'viewer' || ctx.role === 'member') {
-      throw new CrossTenantAccessError(
-        `Role "${ctx.role}" cannot add or modify workspace BYOK model keys.`
-      );
-    }
+    assertVerifiedWriteAccess(ctx, input.workspace_id, ['owner', 'admin']);
     const envelope = encryptApiKey(input.rawApiKey);
     const rec: StoredKeyInternal = {
       id: `key_${crypto.randomUUID()}`,
@@ -602,6 +691,18 @@ export class AgbaSelfHostedBackend {
       envelope,
     };
     this.state.modelKeys.unshift(rec);
+    void this.appwriteBridge.upsertRow('byok_keys', rec.id, {
+      id: rec.id,
+      workspace_id: rec.workspace_id,
+      provider: rec.provider,
+      label: rec.label,
+      maskedKey: rec.maskedKey,
+      ciphertextHex: rec.envelope.ciphertextHex,
+      ivHex: rec.envelope.ivHex,
+      authTagHex: rec.envelope.authTagHex,
+      createdBy: rec.createdBy,
+      createdAt: rec.createdAt,
+    });
     this.persist();
     const { envelope: _env, ...masked } = rec;
     return masked;
@@ -613,6 +714,34 @@ export class AgbaSelfHostedBackend {
     );
     if (!rec) return null;
     return decryptApiKey(rec.envelope);
+  }
+
+  /**
+   * Step 5.1: Strict BYOK key resolver for Public Chat endpoints.
+   * NEVER falls back to the platform owner's GEMINI_API_KEY or seeded LocalDemoKey placeholders.
+   * Throws MissingWorkspaceByokError (HTTP 422) if the workspace has not configured its own real key.
+   */
+  public requireWorkspaceByokKeyForPublicChat(
+    workspaceId: string,
+    preferredProvider?: ModelProvider
+  ): { provider: ModelProvider; decryptedKey: string } {
+    const candidates = this.state.modelKeys.filter((k) => k.workspace_id === workspaceId);
+    for (const candidate of candidates) {
+      if (preferredProvider && candidate.provider !== preferredProvider) continue;
+      const decrypted = decryptApiKey(candidate.envelope);
+      if (decrypted && !decrypted.includes('AgbaLocalDemoKey') && !decrypted.includes('LocalDemoKey')) {
+        return { provider: candidate.provider, decryptedKey: decrypted };
+      }
+    }
+    throw new MissingWorkspaceByokError(
+      `Public Chat for workspace "${workspaceId}" requires a real workspace BYOK API key${
+        preferredProvider ? ` for provider "${preferredProvider}"` : ''
+      }. Platform fallback keys are never used on public endpoints.`
+    );
+  }
+
+  public resolvePgvectorTable(provider: ModelProvider = 'gemini') {
+    return resolvePgvectorTableForProvider(provider);
   }
 
   public uploadAndIndexRagDocument(

@@ -344,6 +344,8 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
           appName: workflow.name,
           prompt: testPrompt,
           systemPrompt: llmNode?.config.systemPrompt,
+          provider: llmNode?.config.provider,
+          modelName: llmNode?.config.modelName,
           allowedTools: workflow.allowedTools,
           activeTool: toolNode?.config.toolId,
           toolTargetUrl: toolNode?.config.toolEndpoint,

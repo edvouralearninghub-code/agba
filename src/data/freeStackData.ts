@@ -299,7 +299,7 @@ export const FREE_STACK_ENTRIES: FreeStackEntry[] = [
     id: 'fs-035',
     serviceName: 'Appwrite (Self-Hosted & Cloud Free)',
     category: 'Auth & Backend Platforms',
-    freeTierSummary: 'BSD-3-Clause backend with Auth, Teams multi-tenancy, Databases, Storage, VectorsDB, and Functions; 75,000 MAU on Cloud Free.',
+    freeTierSummary: 'BSD-3-Clause backend (Auth, Teams, TablesDB, Storage, Functions); Cloud Free includes 75K MAU, 500K reads, 250K writes, 2 GB storage, 5 GB bandwidth, 750K executions (100 GB-hrs), or uncapped when self-hosted via Docker.',
     officialPricingUrl: 'https://appwrite.io/pricing',
     verifiedOn: '2026-10-23',
   },

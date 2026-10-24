@@ -1,0 +1,133 @@
+name: AGBA Security, License & Appwrite 2.6.1 Live Docker CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  static-and-unit-suite:
+    name: TypeScript Lint, No-Firestore Import Guard, Unit Suite & Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: TypeScript Strict Typecheck
+        run: npm run lint
+
+      - name: Enforce Zero Firestore Imports in Application Code (ADR-008)
+        run: npm run check:no-firestore
+
+      - name: Lint Legacy Firestore Rules (Retained Until 14-Day Cutover Window Ends)
+        run: npm run lint:rules
+
+      - name: Verify Compose Structure, Optional Services Shedding Report & Backup Scope
+        run: npm run report:appwrite-scope
+
+      - name: Validate Appwrite 2.6.1 Manifest & Bootstrap Dry-Run
+        run: npm run bootstrap:appwrite
+
+      - name: Run Unit, License Hygiene, Dev-Only Seed Check, Identity Bridge & Dirty Dozen Suite
+        run: npm run verify:phase0
+
+      - name: Build Production Bundle
+        run: npm run build
+
+  real-appwrite-2-6-1-integration:
+    name: Real Appwrite 2.6.1 Installer Diff + 10 Live Tests + Container Memory Table
+    runs-on: ubuntu-latest
+    needs: static-and-unit-suite
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Run Official Appwrite 2.6.1 Installer & Diff Against infra/appwrite/docker-compose.yml
+        run: |
+          mkdir -p /tmp/appwrite-official-install/appwrite
+          docker run --rm \
+            --volume /tmp/appwrite-official-install/appwrite:/usr/src/code/appwrite:rw \
+            --entrypoint="install" \
+            appwrite/appwrite:2.6.1 \
+            --interactive=N \
+            --no-start=true \
+            --http-port=80 \
+            --https-port=443 \
+            --database=postgresql \
+            --topology=combined
+
+          echo "=== 1. Raw Line-by-Line Diff (Official Installer vs. infra/appwrite/docker-compose.yml) ==="
+          diff -u /tmp/appwrite-official-install/appwrite/docker-compose.yml infra/appwrite/docker-compose.yml || true
+
+          echo "=== 2. Canonical Docker Compose Config Diff (Must Be Identical) ==="
+          cp infra/appwrite/.env.example /tmp/appwrite-official-install/appwrite/.env
+          cp infra/appwrite/clickhouse-config.xml /tmp/appwrite-official-install/appwrite/clickhouse-config.xml
+          cp infra/appwrite/clickhouse-init.sh /tmp/appwrite-official-install/appwrite/clickhouse-init.sh
+          cp infra/appwrite/.env.example infra/appwrite/.env
+
+          docker compose --project-directory /tmp/appwrite-official-install/appwrite -f /tmp/appwrite-official-install/appwrite/docker-compose.yml config > /tmp/official-resolved.yml
+          docker compose --project-directory infra/appwrite -f infra/appwrite/docker-compose.yml config > /tmp/repo-resolved.yml
+          diff -u /tmp/official-resolved.yml /tmp/repo-resolved.yml
+          echo "[PASS] infra/appwrite/docker-compose.yml is 100% identical to the official Appwrite 2.6.1 installer output."
+
+      - name: Start Official Unmodified Appwrite 2.6.1 Stack + Separate AGBA Extras
+        run: |
+          docker compose \
+            --env-file infra/appwrite/.env \
+            -f infra/appwrite/docker-compose.yml \
+            -f infra/agba-extras.docker-compose.yml \
+            up -d
+
+      - name: Wait for Appwrite 2.6.1 /v1/health/version Readiness
+        run: |
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1/v1/health/version | grep -q "2.6.1"; then
+              echo "Appwrite 2.6.1 is healthy!"
+              break
+            fi
+            echo "Waiting for Appwrite 2.6.1... ($i/60)"
+            sleep 3
+          done
+          curl -fsS http://127.0.0.1/v1/health/version
+
+      - name: Zero-Touch Bootstrap Appwrite 2.6.1 (10 TablesDB Tables, Columns, Indexes, Bucket & Dev/Test Seed)
+        run: |
+          NODE_ENV=test \
+          APPWRITE_ENDPOINT="http://127.0.0.1/v1" \
+          APPWRITE_PROJECT_ID="agba-core" \
+          npx tsx scripts/bootstrap-appwrite.ts --auto-init --output-env .env.ci.appwrite
+
+      - name: Run Real-Appwrite 2.6.1 Integration Tests (10 of 10 End-to-End Assertions)
+        run: |
+          set -a
+          source .env.ci.appwrite
+          set +a
+          npx tsx scripts/verify-appwrite-integration.ts --require-live
+
+      - name: Capture Per-Container Memory Table & Optional Services Shedding Report (<= 9 GB Budget)
+        run: |
+          echo "=== Real Appwrite 2.6.1 + AGBA Extras Per-Container Memory Table ===" | tee -a "$GITHUB_STEP_SUMMARY"
+          docker stats --no-stream --format "table {{.Name}}\t{{.Image}}\t{{.CPUPerc}}\t{{.MemUsage}}\t{{.MemPerc}}" | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "" | tee -a "$GITHUB_STEP_SUMMARY"
+          npx tsx scripts/report-appwrite-memory-and-backup-scope.ts | tee -a "$GITHUB_STEP_SUMMARY"

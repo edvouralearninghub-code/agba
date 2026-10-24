@@ -55,23 +55,27 @@ Per **Section 2** and **Phase 0** of the Master Build Prompt, we verified curren
 
 ---
 
-## 3. Multi-Tenant Data Model (`workspace_id` Isolation)
+## 3. Multi-Tenant Data Model (`workspace_id` Isolation & Single Source of Truth — ADR-008)
 
-Every operational record belongs to an Appwrite Team (`workspace_id`).
+Per **ADR-008** ([`docs/adr/ADR-008-single-source-of-truth.md`](./docs/adr/ADR-008-single-source-of-truth.md)), **Appwrite (`2.6.1` `TablesDB`)** is the single source of truth for all application documents and files, **PostgreSQL (`pgvector`)** with Row-Level Security (`RLS`) is the single source of truth for vector embeddings, **Redis** is the single source of truth for real-time rate-limit counters, and **Firebase Auth** is used strictly as a pluggable identity provider (`IDENTITY_PROVIDER=firebase|appwrite`) mapped via the server-only `identity_links` table.
 
-### 3.1 Appwrite Collections (`agba_core`)
-- **`workspaces`**: `{ id, name, slug, ownerUserId, planTier ('free' | 'builder' | 'team'), currency ('NGN' | 'USD'), createdAt }`
-- **`workspace_members`**: `{ id, workspace_id, userId, email, role ('owner' | 'admin' | 'member' | 'viewer') }`
-- **`model_connections` (BYOK)**: `{ id, workspace_id, provider ('gemini' | 'openai' | 'anthropic' | 'mistral' | 'ollama'), label, encryptedKey, iv, authTag, maskedKey, createdBy, createdAt }`
-- **`studio_apps`**: `{ id, workspace_id, name, description, nodesJson, edgesJson, allowedTools[], publishedSlug, apiKeyHash, updatedAt }`
-- **`workflow_runs`**: `{ id, workspace_id, appId, status ('running' | 'completed' | 'failed'), durationMs, tokenCount, citationsJson, createdAt }`
-- **`audit_logs`**: `{ id, workspace_id, actorId, action, targetId, metadataJson, createdAt }`
+### 3.1 Appwrite `2.6.1` `TablesDB` Tables (`agba_core`)
+- **`identity_links`** *(Server-Only — `permissions: []`)*: `{ firebaseUid (unique), appwriteUserId (unique), email, createdAt, updatedAt }` — maps Firebase Auth UIDs to Appwrite User IDs (never matched by email alone).
+- **`admins`** *(Server-Only — `permissions: []`)*: `{ uid, email, role, createdAt }`
+- **`workspaces`** *(Client Read via `Role.team(workspaceId)` / Writes via Express only)*: `{ id, teamId, ownerId, name, slug, planTier ('free' | 'builder' | 'team'), currency ('NGN' | 'USD'), createdAt, updatedAt }`
+- **`workflows`** *(Client Read via `Role.team(workspaceId)` / Writes via Express only)*: `{ id, workspace_id, ownerId, name, description, category, status ('draft' | 'published' | 'archived'), allowedToolsJson, nodesJson, edgesJson, publishedSlug, createdAt, updatedAt }`
+- **`free_stack_entries`** *(Client Read via `Role.team(workspaceId)` / Writes via Express only)*: `{ id, workspace_id, ownerId, serviceName, description, category, freeTierSummary, officialPricingUrl, verifiedOn, createdAt, updatedAt }`
+- **`rag_documents`** *(Client Read via `Role.team(workspaceId)` / Writes via Express only)*: `{ id, workspace_id, storageBucketId, storageFileId, originalFilename, sanitizedFilename, mimeType, sizeBytes, chunksCount, embeddingDim, uploadedBy, createdAt }`
+- **`byok_keys`** *(Server-Only — `permissions: []`)*: `{ id, workspace_id, provider, label, maskedKey, ciphertextHex, ivHex, authTagHex, createdBy, createdAt }`
+- **`webhook_events`** *(Server-Only — `permissions: []`)*: `{ eventId, eventType, workspace_id, amountSmallestUnit, currency, status, processedAt }`
+- **`usage`** *(Server-Only — `permissions: []`)*: `{ id, workspace_id, appId, periodDate, runsCount, tokensUsed, updatedAt }` (populated via daily rollups from Redis rate-limit counters)
+- **`audit_log`** *(Server-Only — `permissions: []`)*: `{ id, workspace_id, actorUid, actorRole, action, targetResource, outcome, ipHash, createdAt }`
 
-### 3.2 Neon Postgres (`pgvector`) Schema
+### 3.2 PostgreSQL (`pgvector`) Multi-Dimension Schema with Row-Level Security (`768`, `1024`, `1536`)
 ```sql
 CREATE EXTENSION IF NOT EXISTS vector;
 
-CREATE TABLE rag_document_chunks (
+CREATE TABLE rag_chunks_768 (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   workspace_id TEXT NOT NULL,
   document_id TEXT NOT NULL,
@@ -82,18 +86,27 @@ CREATE TABLE rag_document_chunks (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_rag_chunks_workspace ON rag_document_chunks (workspace_id);
-CREATE INDEX idx_rag_chunks_hnsw ON rag_document_chunks USING hnsw (embedding vector_cosine_ops);
+CREATE INDEX idx_rag_chunks_768_workspace ON rag_chunks_768 (workspace_id);
+CREATE INDEX idx_rag_chunks_768_hnsw ON rag_chunks_768 USING hnsw (embedding vector_cosine_ops);
+
+ALTER TABLE rag_chunks_768 ENABLE ROW LEVEL SECURITY;
+ALTER TABLE rag_chunks_768 FORCE ROW LEVEL SECURITY;
+
+CREATE POLICY tenant_isolation_policy_768 ON rag_chunks_768
+  USING (workspace_id = current_setting('app.workspace_id', true))
+  WITH CHECK (workspace_id = current_setting('app.workspace_id', true));
 ```
-Every retrieval query enforces `WHERE workspace_id = $1` on the server using the authenticated session's `workspace_id`.
+*(Identical DDL and RLS policies apply to `rag_chunks_1024` and `rag_chunks_1536`.)*
 
 ---
 
-## 4. Core Execution Flows
+## 4. Core Execution & Reliability Flows
 
-1. **RAG Ingestion & Retrieval:**
-   - Upload allowlisted file (`.pdf`, `.docx`, `.txt`, `.md`, max 10MB) -> store in Appwrite Storage with UUID key -> chunk text -> generate embeddings on server -> insert into `rag_document_chunks` with `workspace_id`.
-   - At query time, server filters chunks strictly by `workspace_id`, wraps retrieved text in `<untrusted_context>` delimiters, and returns grounded answers with source citations.
-2. **Allowlisted Agent Tools:**
-   - Five standard tools (`http_request`, `web_search`, `calculator`, `document_retrieval`, `send_email_novu`).
-   - Before any tool executes, the engine verifies `app.allowedTools.includes(toolName)`. The `http_request` tool passes through `validateUrlAgainstSSRF()` first.
+1. **Identity Bridge (`IDENTITY_PROVIDER=firebase|appwrite`):**
+   - Browser signs in with Firebase Google OAuth $\rightarrow$ Express verifies ID token (`email_verified === true`) $\rightarrow$ looks up or creates `appwriteUserId` in `identity_links` keyed strictly by `firebaseUid` $\rightarrow$ calls Appwrite `users.createToken(appwriteUserId)` $\rightarrow$ browser exchanges token via `account.createSession(userId, secret)` for a native Appwrite session.
+2. **RAG Ingestion & Retrieval (Appwrite Storage `rag_files` $\rightarrow$ `pgvector` with RLS):**
+   - Upload allowlisted file (`.pdf`, `.docx`, `.txt`, `.md`, max 10MB) $\rightarrow$ store binary in Appwrite Storage bucket `rag_files` with UUID key and `Role.team(workspaceId)` read permission $\rightarrow$ record metadata in `rag_documents` $\rightarrow$ chunk text $\rightarrow$ generate embeddings using the workspace's BYOK key $\rightarrow$ insert into `rag_chunks_<dim>` inside an RLS-scoped transaction (`SET LOCAL app.workspace_id = $1`).
+3. **Zero-Cost Reliability & Recovery (`ADR-008` Section 5):**
+   - `GET /healthz` (liveness) and `GET /readyz` (Appwrite + Postgres + Redis + disk readiness) monitored externally by **UptimeRobot** (5-min) and **Better Stack** (3-min) with **Telegram Bot** + email alerts, **Healthchecks.io** dead-man's-switch heartbeats for nightly AES-256 encrypted backups to **Cloudflare R2 / Backblaze B2**, and **Sentry Developer Free** error tracking.
+
+

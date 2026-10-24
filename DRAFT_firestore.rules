@@ -1,0 +1,194 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global Safety Net: Default-deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Reusable Hardened Primitives
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isAdmin() {
+      return isVerifiedUser() && (
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
+        request.auth.token.email == 'edvouralearninghub@gmail.com'
+      );
+    }
+
+    function isWorkspaceOwner(workspaceId) {
+      return isVerifiedUser() &&
+        exists(/databases/$(database)/documents/workspaces/$(workspaceId)) &&
+        get(/databases/$(database)/documents/workspaces/$(workspaceId)).data.ownerId == request.auth.uid;
+    }
+
+    // Entity Blueprint Validators
+    function isValidWorkspace(data, workspaceId) {
+      return data.keys().hasAll(['id', 'ownerId', 'name', 'slug', 'planTier', 'currency', 'createdAt', 'updatedAt']) &&
+        data.keys().hasOnly(['id', 'ownerId', 'name', 'slug', 'planTier', 'currency', 'createdAt', 'updatedAt']) &&
+        data.id is string && data.id == workspaceId && data.id.size() >= 1 && data.id.size() <= 128 && data.id.matches('^[a-zA-Z0-9_\\-]+$') &&
+        data.ownerId is string && data.ownerId == request.auth.uid && data.ownerId.size() >= 1 && data.ownerId.size() <= 128 && data.ownerId.matches('^[a-zA-Z0-9_\\-]+$') &&
+        data.name is string && data.name.size() >= 2 && data.name.size() <= 80 &&
+        data.slug is string && data.slug.size() >= 2 && data.slug.size() <= 80 && data.slug.matches('^[a-z0-9\\-]+$') &&
+        data.planTier is string && data.planTier.size() <= 16 && data.planTier in ['free', 'builder', 'team'] &&
+        data.currency is string && data.currency.size() <= 8 && data.currency in ['NGN', 'USD'] &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidWorkflow(data, workspaceId, workflowId) {
+      return data.keys().hasAll(['id', 'workspace_id', 'ownerId', 'name', 'description', 'category', 'status', 'createdAt', 'updatedAt']) &&
+        data.keys().hasOnly(['id', 'workspace_id', 'ownerId', 'name', 'description', 'category', 'status', 'createdAt', 'updatedAt']) &&
+        data.id is string && data.id == workflowId && data.id.size() >= 1 && data.id.size() <= 128 && data.id.matches('^[a-zA-Z0-9_\\-]+$') &&
+        data.workspace_id is string && data.workspace_id == workspaceId && data.workspace_id.size() >= 1 && data.workspace_id.size() <= 128 && data.workspace_id.matches('^[a-zA-Z0-9_\\-]+$') &&
+        data.ownerId is string && data.ownerId == request.auth.uid && data.ownerId.size() >= 1 && data.ownerId.size() <= 128 && data.ownerId.matches('^[a-zA-Z0-9_\\-]+$') &&
+        data.name is string && data.name.size() >= 2 && data.name.size() <= 120 &&
+        data.description is string && data.description.size() >= 1 && data.description.size() <= 500 &&
+        data.category is string && data.category.size() <= 32 && data.category in ['Starter', 'RAG', 'Multi-Agent'] &&
+        data.status is string && data.status.size() <= 16 && data.status in ['draft', 'published', 'archived'] &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidFreeStackEntry(data, workspaceId, entryId) {
+      return data.keys().hasAll(['id', 'workspace_id', 'ownerId', 'serviceName', 'description', 'category', 'freeTierSummary', 'officialPricingUrl', 'verifiedOn', 'createdAt', 'updatedAt']) &&
+        data.keys().hasOnly(['id', 'workspace_id', 'ownerId', 'serviceName', 'description', 'category', 'freeTierSummary', 'officialPricingUrl', 'verifiedOn', 'createdAt', 'updatedAt']) &&
+        data.id is string && data.id == entryId && data.id.size() >= 1 && data.id.size() <= 128 && data.id.matches('^[a-zA-Z0-9_\\-]+$') &&
+        data.workspace_id is string && data.workspace_id == workspaceId && data.workspace_id.size() >= 1 && data.workspace_id.size() <= 128 && data.workspace_id.matches('^[a-zA-Z0-9_\\-]+$') &&
+        data.ownerId is string && data.ownerId == request.auth.uid && data.ownerId.size() >= 1 && data.ownerId.size() <= 128 && data.ownerId.matches('^[a-zA-Z0-9_\\-]+$') &&
+        data.serviceName is string && data.serviceName.size() >= 2 && data.serviceName.size() <= 120 &&
+        data.description is string && data.description.size() >= 0 && data.description.size() <= 400 &&
+        data.category is string && data.category.size() <= 64 && data.category in [
+          'Cloud & Compute',
+          'Databases & Vector Stores',
+          'Auth & Identity',
+          'AI & Model APIs',
+          'Hosting & CDN',
+          'Email & Notifications',
+          'Payments & Billing',
+          'Monitoring & Logs',
+          'CI/CD & DevOps',
+          'DNS & Domains',
+          'Storage & Media'
+        ] &&
+        data.freeTierSummary is string && data.freeTierSummary.size() >= 10 && data.freeTierSummary.size() <= 500 &&
+        data.officialPricingUrl is string && data.officialPricingUrl.size() >= 8 && data.officialPricingUrl.size() <= 300 && data.officialPricingUrl.matches('^https://.+') &&
+        data.verifiedOn is string && data.verifiedOn.size() == 10 && data.verifiedOn.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$') &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    // 1. Admins Collection (System-protected)
+    match /admins/{adminUid} {
+      allow get: if isVerifiedUser() && isValidId(adminUid) && (request.auth.uid == adminUid || isAdmin());
+      allow list: if false;
+      allow create, update, delete: if false;
+    }
+
+    // 2. Workspaces Collection
+    match /workspaces/{workspaceId} {
+      allow get: if isVerifiedUser() && isValidId(workspaceId) && (existing().ownerId == request.auth.uid || isAdmin());
+      allow list: if isVerifiedUser() && existing().ownerId == request.auth.uid;
+
+      allow create: if isVerifiedUser() &&
+        isValidId(workspaceId) &&
+        isValidWorkspace(incoming(), workspaceId) &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+
+      allow update: if isVerifiedUser() &&
+        isValidId(workspaceId) &&
+        isValidWorkspace(incoming(), workspaceId) &&
+        incoming().id == existing().id &&
+        incoming().ownerId == existing().ownerId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time && (
+          isAdmin() ||
+          (existing().ownerId == request.auth.uid &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['name', 'slug', 'planTier', 'currency', 'updatedAt']))
+        );
+
+      allow delete: if isVerifiedUser() && isValidId(workspaceId) && (existing().ownerId == request.auth.uid || isAdmin());
+
+      // 3. Workspace Workflows Subcollection
+      match /workflows/{workflowId} {
+        allow get: if isVerifiedUser() && isValidId(workspaceId) && isValidId(workflowId) && (isWorkspaceOwner(workspaceId) || isAdmin());
+        allow list: if isVerifiedUser() && existing().ownerId == request.auth.uid;
+
+        allow create: if isVerifiedUser() &&
+          isValidId(workspaceId) &&
+          isValidId(workflowId) &&
+          isValidWorkflow(incoming(), workspaceId, workflowId) &&
+          incoming().createdAt == request.time &&
+          incoming().updatedAt == request.time &&
+          (isWorkspaceOwner(workspaceId) || isAdmin());
+
+        allow update: if isVerifiedUser() &&
+          isValidId(workspaceId) &&
+          isValidId(workflowId) &&
+          isValidWorkflow(incoming(), workspaceId, workflowId) &&
+          incoming().id == existing().id &&
+          incoming().workspace_id == existing().workspace_id &&
+          incoming().ownerId == existing().ownerId &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().updatedAt == request.time && (
+            isAdmin() ||
+            (existing().status != 'archived' &&
+              isWorkspaceOwner(workspaceId) &&
+              incoming().diff(existing()).affectedKeys().hasOnly(['name', 'description', 'category', 'status', 'updatedAt']))
+          );
+
+        allow delete: if isVerifiedUser() && isValidId(workspaceId) && isValidId(workflowId) && (isWorkspaceOwner(workspaceId) || isAdmin());
+      }
+
+      // 4. Workspace Free Stack Entries Subcollection
+      match /free_stack_entries/{entryId} {
+        allow get: if isVerifiedUser() && isValidId(workspaceId) && isValidId(entryId) && (isWorkspaceOwner(workspaceId) || isAdmin());
+        allow list: if isVerifiedUser() && existing().ownerId == request.auth.uid;
+
+        allow create: if isVerifiedUser() &&
+          isValidId(workspaceId) &&
+          isValidId(entryId) &&
+          isValidFreeStackEntry(incoming(), workspaceId, entryId) &&
+          incoming().createdAt == request.time &&
+          incoming().updatedAt == request.time &&
+          (isWorkspaceOwner(workspaceId) || isAdmin());
+
+        allow update: if isVerifiedUser() &&
+          isValidId(workspaceId) &&
+          isValidId(entryId) &&
+          isValidFreeStackEntry(incoming(), workspaceId, entryId) &&
+          incoming().id == existing().id &&
+          incoming().workspace_id == existing().workspace_id &&
+          incoming().ownerId == existing().ownerId &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().updatedAt == request.time && (
+            isAdmin() ||
+            (isWorkspaceOwner(workspaceId) &&
+              incoming().diff(existing()).affectedKeys().hasOnly(['serviceName', 'description', 'category', 'freeTierSummary', 'officialPricingUrl', 'verifiedOn', 'updatedAt']))
+          );
+
+        allow delete: if isVerifiedUser() && isValidId(workspaceId) && isValidId(entryId) && (isWorkspaceOwner(workspaceId) || isAdmin());
+      }
+    }
+  }
+}

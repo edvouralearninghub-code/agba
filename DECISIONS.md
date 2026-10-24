@@ -50,4 +50,25 @@
 - **Date:** 2026-10-23
 - **Status:** Accepted (Environment Constraint)
 - **Context:** The AI Studio live preview environment runs a single-port (`3000`) Vite + Express TypeScript server (`server.ts`).
-- **Decision:** Structure the codebase cleanly into modular domain boundaries (`src/server/` for backend security, tenant isolation, encryption, SSRF guard, webhook verification, and Gemini execution; `src/client/` / `src/components/` for the AGBA Marketing Site and App Shell; `scripts/verify-phase0.ts` for automated CI verification) so the live preview works out-of-the-box while remaining 100% portable to the Vercel + Railway monorepo deployment topology.
+- **Decision:** Structure the codebase cleanly into modular domain boundaries (`src/server/` for backend security, tenant isolation, encryption, SSRF guard, webhook verification, and Gemini execution; `src/client/` / `src/components/` for the AGBA Marketing Site and App Shell; `scripts/verify-phase0.ts` for automated CI verification) so the live preview works out-of-the-box while remaining 100% portable to the Coolify / Docker self-hosted deployment topology.
+
+---
+
+## ADR-007: Appwrite 2.6 (`TablesDB`) + Multi-Dimension `pgvector` Baseline
+- **Date:** 2026-10-23
+- **Status:** Partially Superseded by **ADR-008** (Dual-write to Firestore retired; `TablesDB` schema, strict Public Chat BYOK, and multi-dimension `pgvector` retained — see [`docs/adr/ADR-007-appwrite-migration.md`](./docs/adr/ADR-007-appwrite-migration.md))
+
+---
+
+## ADR-008: Appwrite 2.6.1 as Single Source of Truth, Firebase Identity Bridge & Zero-Cost Reliability `[DECISION]`
+- **Date:** 2026-10-24
+- **Status:** Accepted at Gate A with Owner Conditions; Currently at Gate B Review (See [`docs/adr/ADR-008-single-source-of-truth.md`](./docs/adr/ADR-008-single-source-of-truth.md))
+- **Context:** Dual-writing application data to both Firebase Cloud Firestore and Appwrite `TablesDB` introduces split-brain drift risk and requires maintaining two parallel rule systems. In addition, container image digests, real-Appwrite integration tests, and $0 external uptime/backup/alerting safeguards must be verified with concrete evidence.
+- **Decision Summary:**
+  1. **Single Source of Truth (`Appwrite 2.6.1`):** Appwrite `2.6.1` (`TablesDB` + Storage `rag_files` + Teams) generated via the official Appwrite `2.6.1` installer (`infra/appwrite/docker-compose.yml` kept 100% unmodified, with AGBA extras in `infra/agba-extras.docker-compose.yml`) is the sole system of record for workspaces, workflows, Free Stack CMS entries, BYOK keys, webhook ledgers, usage rollups, audit logs, identity links, and files. Firestore application data writes and reads are retired after a one-time migration script (`scripts/migrate-firestore-to-appwrite.ts`), enforced by a CI import-ban check (`scripts/check-no-firestore-imports.ts`).
+  2. **Identity Bridge (`IDENTITY_PROVIDER=firebase|appwrite`):** Browser signs in with Firebase Google Auth, Express verifies the Firebase ID token (`email_verified === true`), maps `firebaseUid -> appwriteUserId` via the server-only `identity_links` table (never by email alone), and mints an Appwrite custom token via `users.createToken` so the browser establishes a genuine Appwrite session.
+  3. **Read-via-Team / Write-via-Express Permissions & Postgres RLS:** Client roles receive `read` permission via `Role.team(workspaceId)` and **zero write permissions** on Appwrite tables (all writes validated by Express + strict Zod schemas). PostgreSQL `rag_chunks_768`/`1024`/`1536` tables enforce Row-Level Security (`RLS`) bound to `app.workspace_id`. Rate-limit counters move to Redis.
+  4. **Zero-Cost Reliability Stack (Commercial-Use Verified on `2026-10-24`):** `/healthz` + `/readyz` probed by **UptimeRobot** (50 free monitors, 5-min interval) and **Better Stack** (10 free monitors, 3-min interval), mobile push alerts via **Telegram Bot API**, cron heartbeats via **Healthchecks.io** (20 free checks), error tracking via **Sentry Developer Free** (5,000 events/mo), and nightly AES-256 encrypted offsite backups to **Cloudflare R2** (10 GB free, $0 egress) / **Backblaze B2** (10 GB free). Oracle Cloud Always-Free idle reclamation (`< 20%` 95th-percentile threshold over 7 days) is addressed via strictly `$0` Always-Free options with no paid plan.
+
+
+

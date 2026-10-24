@@ -29,6 +29,9 @@
 | `tailwindcss` | `^4.3.3` | `MIT` | Utility-first CSS framework |
 | `tsx` | `^4.21.0` | `MIT` | TypeScript execution engine for server and verification scripts |
 | `typescript` | `^7.0.2` | `Apache-2.0` | Strict static type checker |
+| `firebase` | `^11.0.0` | `Apache-2.0` | Client-side Firebase Authentication & Cloud Firestore SDK |
+| `eslint` | `^9.0.0` | `MIT` | Static security and code linter |
+| `@firebase/eslint-plugin-security-rules` | `^1.0.0` | `Apache-2.0` | Firestore security rules static analyzer |
 
 ---
 
@@ -48,6 +51,6 @@
 | **Claude SEO Suite** | `https://github.com/AgriciDaniel/claude-seo` | `MIT` | Inspires AGBA's AI SEO, Schema.org JSON-LD, Core Web Vitals, and GEO/AEO audit agent workflow and Free Stack entry. |
 | **OpenWork (Core)** | `https://github.com/different-ai/openwork` | `MIT` (Core outside `ee/`) | Inspires AGBA's autonomous AI coworker & task orchestration template. **All `ee/` Enterprise Edition files are strictly excluded.** |
 | **Awesome MCP Servers** | `https://github.com/punkpeye/awesome-mcp-servers` | `MIT` | Model Context Protocol (MCP) server directory and connector patterns for AGBA Studio tool bindings. |
-| **Mattermost (Team Edition)** | `https://github.com/mattermost/mattermost` | `Apache-2.0` (Core / Webhooks) | Self-hosted Team Collaboration & ChatOps webhook integration. **Enterprise-licensed modules are strictly excluded.** |
+| **Mattermost (Team Edition)** | `https://github.com/mattermost/mattermost` | `AGPL-3.0` (Server) / `Apache-2.0` (Drivers) | Listed in AGBA Free Stack and integrated solely via external outbound HTTPS Incoming Webhooks (**zero AGPL-3.0 Mattermost server code linked, modified, or bundled; `enterprise/` strictly excluded**). |
 | **Plausible Analytics CE** | `https://github.com/plausible/analytics` | `AGPL-3.0` (Server) / Permissive (Tracker) | Listed in AGBA Free Stack and integrated solely via external HTTP Events API / lightweight script tracker (**zero AGPL-3.0 server code linked or bundled**). |
 

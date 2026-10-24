@@ -1,0 +1,244 @@
+{
+  "projectId": "agba-core",
+  "projectName": "AGBA — Learn, Build & Ship AI (Appwrite 2.6.1 Single Source of Truth)",
+  "version": "2.6.1",
+  "api": "TablesDB",
+  "databases": [
+    {
+      "$id": "agba_core",
+      "name": "AGBA Core TablesDB",
+      "enabled": true
+    }
+  ],
+  "tables": [
+    {
+      "$id": "admins",
+      "$permissions": [],
+      "databaseId": "agba_core",
+      "name": "Platform Super Admins (Server-Only)",
+      "enabled": true,
+      "rowSecurity": true,
+      "columns": [
+        { "key": "uid", "type": "string", "size": 128, "required": true },
+        { "key": "email", "type": "string", "size": 255, "required": true },
+        { "key": "role", "type": "string", "size": 32, "required": true },
+        { "key": "createdAt", "type": "datetime", "required": true }
+      ],
+      "indexes": [
+        { "key": "idx_admins_uid", "type": "unique", "columns": ["uid"] }
+      ]
+    },
+    {
+      "$id": "identity_links",
+      "$permissions": [],
+      "databaseId": "agba_core",
+      "name": "Firebase UID to Appwrite User ID Bridge (Server-Only)",
+      "enabled": true,
+      "rowSecurity": true,
+      "columns": [
+        { "key": "id", "type": "string", "size": 128, "required": true },
+        { "key": "firebaseUid", "type": "string", "size": 128, "required": true },
+        { "key": "appwriteUserId", "type": "string", "size": 128, "required": true },
+        { "key": "email", "type": "string", "size": 255, "required": true },
+        { "key": "createdAt", "type": "datetime", "required": true },
+        { "key": "updatedAt", "type": "datetime", "required": true }
+      ],
+      "indexes": [
+        { "key": "idx_identity_firebase_uid", "type": "unique", "columns": ["firebaseUid"] },
+        { "key": "idx_identity_appwrite_uid", "type": "unique", "columns": ["appwriteUserId"] }
+      ]
+    },
+    {
+      "$id": "workspaces",
+      "$permissions": [],
+      "databaseId": "agba_core",
+      "name": "Tenant Workspaces (Appwrite Teams)",
+      "enabled": true,
+      "rowSecurity": true,
+      "columns": [
+        { "key": "id", "type": "string", "size": 128, "required": true },
+        { "key": "teamId", "type": "string", "size": 128, "required": true },
+        { "key": "name", "type": "string", "size": 80, "required": true },
+        { "key": "slug", "type": "string", "size": 80, "required": true },
+        { "key": "planTier", "type": "string", "size": 24, "required": true },
+        { "key": "currency", "type": "string", "size": 8, "required": true },
+        { "key": "ownerId", "type": "string", "size": 128, "required": true },
+        { "key": "createdAt", "type": "datetime", "required": true }
+      ],
+      "indexes": [
+        { "key": "idx_workspaces_slug", "type": "unique", "columns": ["slug"] },
+        { "key": "idx_workspaces_owner", "type": "key", "columns": ["ownerId"] }
+      ]
+    },
+    {
+      "$id": "workflows",
+      "$permissions": [],
+      "databaseId": "agba_core",
+      "name": "Studio Workflow DAGs",
+      "enabled": true,
+      "rowSecurity": true,
+      "columns": [
+        { "key": "id", "type": "string", "size": 128, "required": true },
+        { "key": "workspace_id", "type": "string", "size": 128, "required": true },
+        { "key": "ownerId", "type": "string", "size": 128, "required": true },
+        { "key": "name", "type": "string", "size": 120, "required": true },
+        { "key": "description", "type": "string", "size": 1000, "required": false },
+        { "key": "category", "type": "string", "size": 32, "required": true },
+        { "key": "status", "type": "string", "size": 32, "required": true },
+        { "key": "allowedToolsJson", "type": "string", "size": 1024, "required": true },
+        { "key": "nodesJson", "type": "string", "size": 16384, "required": true },
+        { "key": "edgesJson", "type": "string", "size": 8192, "required": true },
+        { "key": "publishedSlug", "type": "string", "size": 120, "required": false },
+        { "key": "updatedAt", "type": "datetime", "required": true }
+      ],
+      "indexes": [
+        { "key": "idx_workflows_ws", "type": "key", "columns": ["workspace_id"] }
+      ]
+    },
+    {
+      "$id": "free_stack_entries",
+      "$permissions": [],
+      "databaseId": "agba_core",
+      "name": "AGBA Free Stack Directory Entries",
+      "enabled": true,
+      "rowSecurity": true,
+      "columns": [
+        { "key": "id", "type": "string", "size": 128, "required": true },
+        { "key": "workspace_id", "type": "string", "size": 128, "required": true },
+        { "key": "serviceName", "type": "string", "size": 100, "required": true },
+        { "key": "description", "type": "string", "size": 400, "required": false },
+        { "key": "category", "type": "string", "size": 64, "required": true },
+        { "key": "freeTierSummary", "type": "string", "size": 500, "required": true },
+        { "key": "officialPricingUrl", "type": "string", "size": 500, "required": true },
+        { "key": "verifiedOn", "type": "string", "size": 32, "required": true }
+      ],
+      "indexes": [
+        { "key": "idx_freestack_ws_cat", "type": "key", "columns": ["workspace_id", "category"] }
+      ]
+    },
+    {
+      "$id": "byok_keys",
+      "$permissions": [],
+      "databaseId": "agba_core",
+      "name": "AES-256-GCM Encrypted BYOK Model Keys (Server-Only)",
+      "enabled": true,
+      "rowSecurity": true,
+      "columns": [
+        { "key": "id", "type": "string", "size": 128, "required": true },
+        { "key": "workspace_id", "type": "string", "size": 128, "required": true },
+        { "key": "provider", "type": "string", "size": 32, "required": true },
+        { "key": "label", "type": "string", "size": 80, "required": true },
+        { "key": "maskedKey", "type": "string", "size": 64, "required": true },
+        { "key": "ciphertextHex", "type": "string", "size": 2048, "required": true },
+        { "key": "ivHex", "type": "string", "size": 64, "required": true },
+        { "key": "authTagHex", "type": "string", "size": 64, "required": true },
+        { "key": "createdBy", "type": "string", "size": 128, "required": true },
+        { "key": "createdAt", "type": "datetime", "required": true }
+      ],
+      "indexes": [
+        { "key": "idx_byok_ws_provider", "type": "key", "columns": ["workspace_id", "provider"] }
+      ]
+    },
+    {
+      "$id": "rag_documents",
+      "$permissions": [],
+      "databaseId": "agba_core",
+      "name": "RAG Document Metadata & Storage Mapping",
+      "enabled": true,
+      "rowSecurity": true,
+      "columns": [
+        { "key": "id", "type": "string", "size": 128, "required": true },
+        { "key": "workspace_id", "type": "string", "size": 128, "required": true },
+        { "key": "storageBucketId", "type": "string", "size": 64, "required": true },
+        { "key": "storageFileId", "type": "string", "size": 128, "required": true },
+        { "key": "originalFilename", "type": "string", "size": 255, "required": true },
+        { "key": "sanitizedFilename", "type": "string", "size": 128, "required": true },
+        { "key": "mimeType", "type": "string", "size": 128, "required": true },
+        { "key": "sizeBytes", "type": "integer", "required": true },
+        { "key": "chunksCount", "type": "integer", "required": true },
+        { "key": "embeddingDim", "type": "integer", "required": true },
+        { "key": "uploadedBy", "type": "string", "size": 128, "required": true },
+        { "key": "createdAt", "type": "datetime", "required": true }
+      ],
+      "indexes": [
+        { "key": "idx_rag_docs_ws", "type": "key", "columns": ["workspace_id"] }
+      ]
+    },
+    {
+      "$id": "webhook_events",
+      "$permissions": [],
+      "databaseId": "agba_core",
+      "name": "Paystack Webhook Idempotency Ledger (Server-Only)",
+      "enabled": true,
+      "rowSecurity": true,
+      "columns": [
+        { "key": "eventId", "type": "string", "size": 128, "required": true },
+        { "key": "eventType", "type": "string", "size": 64, "required": true },
+        { "key": "workspace_id", "type": "string", "size": 128, "required": true },
+        { "key": "amountSmallestUnit", "type": "integer", "required": true },
+        { "key": "currency", "type": "string", "size": 8, "required": true },
+        { "key": "status", "type": "string", "size": 32, "required": true },
+        { "key": "processedAt", "type": "datetime", "required": true }
+      ],
+      "indexes": [
+        { "key": "idx_webhook_event_id", "type": "unique", "columns": ["eventId"] }
+      ]
+    },
+    {
+      "$id": "usage",
+      "$permissions": [],
+      "databaseId": "agba_core",
+      "name": "Workspace & Public Chat Daily Quota Rollups (Server-Only)",
+      "enabled": true,
+      "rowSecurity": true,
+      "columns": [
+        { "key": "id", "type": "string", "size": 128, "required": true },
+        { "key": "workspace_id", "type": "string", "size": 128, "required": true },
+        { "key": "appId", "type": "string", "size": 128, "required": true },
+        { "key": "periodDate", "type": "string", "size": 16, "required": true },
+        { "key": "runsCount", "type": "integer", "required": true },
+        { "key": "tokensUsed", "type": "integer", "required": true },
+        { "key": "updatedAt", "type": "datetime", "required": true }
+      ],
+      "indexes": [
+        { "key": "idx_usage_ws_app_date", "type": "unique", "columns": ["workspace_id", "appId", "periodDate"] }
+      ]
+    },
+    {
+      "$id": "audit_log",
+      "$permissions": [],
+      "databaseId": "agba_core",
+      "name": "Immutable Security & Tenant Audit Log (Server-Only)",
+      "enabled": true,
+      "rowSecurity": true,
+      "columns": [
+        { "key": "id", "type": "string", "size": 128, "required": true },
+        { "key": "workspace_id", "type": "string", "size": 128, "required": true },
+        { "key": "actorUid", "type": "string", "size": 128, "required": true },
+        { "key": "actorRole", "type": "string", "size": 32, "required": true },
+        { "key": "action", "type": "string", "size": 64, "required": true },
+        { "key": "targetResource", "type": "string", "size": 255, "required": true },
+        { "key": "outcome", "type": "string", "size": 32, "required": true },
+        { "key": "ipHash", "type": "string", "size": 64, "required": false },
+        { "key": "createdAt", "type": "datetime", "required": true }
+      ],
+      "indexes": [
+        { "key": "idx_audit_ws_created", "type": "key", "columns": ["workspace_id", "createdAt"] }
+      ]
+    }
+  ],
+  "buckets": [
+    {
+      "$id": "rag_files",
+      "$permissions": [],
+      "name": "RAG Uploaded Documents (.pdf, .docx, .txt, .md)",
+      "enabled": true,
+      "maximumFileSize": 10485760,
+      "allowedFileExtensions": ["pdf", "docx", "txt", "md"],
+      "compression": "gzip",
+      "encryption": true,
+      "antivirus": false,
+      "fileSecurity": true
+    }
+  ]
+}

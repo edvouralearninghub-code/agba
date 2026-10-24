@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Cpu,
   BookOpen,
@@ -15,6 +15,8 @@ import {
   X,
   ChevronDown,
   ChevronRight,
+  LogIn,
+  LogOut,
 } from 'lucide-react';
 import { MarketingLanding } from './components/MarketingLanding.tsx';
 import { StudioWorkspace } from './components/StudioWorkspace.tsx';
@@ -23,6 +25,18 @@ import { AcademyView, SettingsAndSecurityView } from './components/AcademyAndSet
 import { BillingView } from './components/BillingView.tsx';
 import { PublicChatView } from './components/PublicChatView.tsx';
 import { ACADEMY_TEMPLATES } from './data/academyTemplates.ts';
+import {
+  auth,
+  bridgeFirebaseUserToAppwrite,
+  onAuthStateChanged,
+  signInWithGooglePopup,
+  signOutFirebaseUser,
+  type User,
+} from './lib/firebase.ts';
+import {
+  syncWorkflowViaExpress,
+  syncWorkspaceViaExpress,
+} from './lib/appwriteClient.ts';
 import type {
   AcademyTemplate,
   FreeStackCategory,
@@ -30,7 +44,6 @@ import type {
   ModelProvider,
   StudioWorkflowApp,
   Workspace,
-  WorkspaceRole,
 } from './types/agba.ts';
 
 type ActiveModule = 'studio' | 'academy' | 'freestack' | 'settings' | 'billing';
@@ -83,9 +96,26 @@ export default function App() {
 
   const [workspaces, setWorkspaces] = useState<Workspace[]>(INITIAL_WORKSPACES);
   const [activeWorkspaceId, setActiveWorkspaceId] = useState<string>('ws_trendtactics_lagos');
+  const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
+  const [authReady, setAuthReady] = useState<boolean>(false);
 
   const activeWorkspace =
     workspaces.find((w) => w.id === activeWorkspaceId) || workspaces[0];
+
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, (user) => {
+      setFirebaseUser(user);
+      setAuthReady(true);
+    });
+    return () => unsub();
+  }, []);
+
+  useEffect(() => {
+    if (!authReady || !firebaseUser) return;
+    // Bridge Firebase identity token to an Appwrite 2.6.1 session via /api/auth/bridge-session
+    void bridgeFirebaseUserToAppwrite(firebaseUser);
+    void syncWorkspaceViaExpress(activeWorkspace);
+  }, [authReady, firebaseUser, activeWorkspace]);
 
   const [modelKeys, setModelKeys] = useState<MaskedModelKeyRecord[]>([
     {
@@ -131,7 +161,7 @@ export default function App() {
   });
 
   const handleImportTemplate = (tpl: AcademyTemplate) => {
-    setCurrentWorkflow({
+    const nextWf: StudioWorkflowApp = {
       id: `app_${tpl.id}_${Date.now().toString(36)}`,
       workspace_id: activeWorkspace.id,
       name: tpl.title,
@@ -146,7 +176,9 @@ export default function App() {
       nodes: tpl.nodes.map((n) => ({ ...n, config: { ...n.config } })),
       edges: tpl.edges.map((e) => ({ ...e })),
       updatedAt: new Date().toISOString(),
-    });
+    };
+    setCurrentWorkflow(nextWf);
+    void syncWorkflowViaExpress(activeWorkspace.id, nextWf);
     setViewMode('app');
     setActiveModule('studio');
     setExpandedMenu('studio');
@@ -163,12 +195,6 @@ export default function App() {
       createdBy: 'usr_akinola_01',
     };
     setModelKeys((prev) => [newRec, ...prev]);
-  };
-
-  const handleRoleChange = (role: WorkspaceRole) => {
-    setWorkspaces((prev) =>
-      prev.map((w) => (w.id === activeWorkspace.id ? { ...w, memberRole: role } : w))
-    );
   };
 
   const handleCurrencyChange = (currency: 'NGN' | 'USD') => {
@@ -507,21 +533,20 @@ export default function App() {
                 ))}
               </select>
 
-              <select
-                aria-label="Workspace Team Role"
-                value={activeWorkspace.memberRole}
-                onChange={(e) => handleRoleChange(e.target.value as WorkspaceRole)}
-                className={`hidden sm:block rounded-lg border px-2.5 py-1.5 text-xs ${
+              <span
+                aria-label="Server-Verified Workspace Team Role"
+                title="Role is derived strictly on the server from your Appwrite Team + Firebase Workspace membership (never from client headers)."
+                className={`hidden sm:inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium ${
                   isDark
                     ? 'border-white/15 bg-[#1B1F5E]/60 text-[#FAF6EC]'
                     : 'border-[#0F1226]/15 bg-white text-[#0F1226]'
                 }`}
               >
-                <option value="owner">Role: Owner</option>
-                <option value="admin">Role: Admin</option>
-                <option value="member">Role: Member</option>
-                <option value="viewer">Role: Viewer (Read-Only)</option>
-              </select>
+                <span className="h-2 w-2 rounded-full bg-[#2E8B57]" />
+                <span>
+                  Role: {activeWorkspace.memberRole.toUpperCase()} (Server-Verified)
+                </span>
+              </span>
             </div>
           </div>
 
@@ -568,13 +593,48 @@ export default function App() {
             </button>
 
             <div className="hidden sm:flex items-center gap-2 border-l border-current/10 pl-3 text-xs">
-              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[#3B3FA8] font-mono text-xs font-bold text-[#FAF6EC]">
-                AO
-              </div>
-              <div className="leading-tight">
-                <div className="font-semibold">Akinola Olujobi</div>
-                <div className="text-[11px] opacity-70">Trendtactics Digital</div>
-              </div>
+              {firebaseUser ? (
+                <>
+                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[#2E8B57] font-mono text-xs font-bold text-[#FAF6EC]">
+                    {(firebaseUser.displayName || firebaseUser.email || 'AG')
+                      .slice(0, 2)
+                      .toUpperCase()}
+                  </div>
+                  <div className="leading-tight">
+                    <div className="font-semibold">
+                      {firebaseUser.displayName || 'Akinola Olujobi'}
+                    </div>
+                    <div className="text-[11px] opacity-70">{firebaseUser.email}</div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => void signOutFirebaseUser()}
+                    title="Sign Out"
+                    className="ml-1 inline-flex items-center gap-1 rounded-lg border border-current/15 px-2 py-1 text-[11px] font-medium hover:bg-current/5"
+                  >
+                    <LogOut className="h-3 w-3" />
+                    <span>Sign Out</span>
+                  </button>
+                </>
+              ) : (
+                <>
+                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[#3B3FA8] font-mono text-xs font-bold text-[#FAF6EC]">
+                    AO
+                  </div>
+                  <div className="leading-tight">
+                    <div className="font-semibold">Akinola Olujobi</div>
+                    <div className="text-[11px] opacity-70">Trendtactics Digital</div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => void signInWithGooglePopup()}
+                    className="ml-1 inline-flex items-center gap-1 rounded-lg bg-[#D9A441] px-2.5 py-1.5 text-[11px] font-semibold text-[#0F1226] hover:bg-[#c89332]"
+                  >
+                    <LogIn className="h-3 w-3" />
+                    <span>Sign In</span>
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </header>
@@ -667,6 +727,7 @@ export default function App() {
               onWorkspaceCreated={(newWs) => {
                 setWorkspaces((prev) => [...prev, newWs]);
                 setActiveWorkspaceId(newWs.id);
+                void syncWorkspaceViaExpress(newWs);
               }}
               isDark={isDark}
             />
