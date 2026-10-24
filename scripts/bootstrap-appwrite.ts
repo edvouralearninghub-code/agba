@@ -252,7 +252,6 @@ export async function autoInitializeFreshAppwriteInstance(params: {
     }),
   });
   if (!teamRes.ok && teamRes.status !== 409) {
-    // Fallback for Appwrite setups using /organizations
     await fetch(`${base}/organizations`, {
       method: 'POST',
       headers: consoleHeaders,
@@ -286,7 +285,7 @@ export async function autoInitializeFreshAppwriteInstance(params: {
     });
   }
 
-  // 5. Create Least-Privilege Server API Key (try TablesDB + Classic scopes, fallback to Classic scopes if needed)
+  // 5. Create Least-Privilege Server API Key (Appwrite 2.6.1 requires `keyId` in the POST body)
   const scopeCandidates = [
     LEAST_PRIVILEGE_APPWRITE_SCOPES,
     [
@@ -312,11 +311,14 @@ export async function autoInitializeFreshAppwriteInstance(params: {
   ];
 
   let lastKeyError = '';
-  for (const scopes of scopeCandidates) {
+  for (let i = 0; i < scopeCandidates.length; i++) {
+    const scopes = scopeCandidates[i];
+    const keyId = `agba_srv_key_${Date.now().toString(36)}_${i}`;
     const keyRes = await fetch(`${base}/projects/${params.projectId}/keys`, {
       method: 'POST',
       headers: consoleHeaders,
       body: JSON.stringify({
+        keyId,
         name: 'agba-express-least-privilege-key',
         scopes,
       }),
@@ -341,7 +343,7 @@ async function waitForColumnsAvailable(
   tableId: string,
   expectedCount: number
 ): Promise<void> {
-  for (let attempt = 0; attempt < 35; attempt++) {
+  for (let attempt = 0; attempt < 60; attempt++) {
     let res = await callAppwriteAdminApi(
       endpoint,
       projectId,
@@ -359,12 +361,12 @@ async function waitForColumnsAvailable(
       );
     }
     const columns =
-      ((res.data.columns || res.data.attributes) as { status?: string }[] | undefined) || [];
+      ((res.data.columns || res.data.attributes) as { key?: string; status?: string }[] | undefined) || [];
     const availableCount = columns.filter((c) => c.status === 'available').length;
     if (availableCount >= expectedCount) {
       return;
     }
-    await new Promise((r) => setTimeout(r, 400));
+    await new Promise((r) => setTimeout(r, 500));
   }
 }
 

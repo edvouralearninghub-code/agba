@@ -31,20 +31,33 @@ async function createRowWithFallback(
   rowId: string,
   data: Record<string, unknown>,
   permissions: string[]
-): Promise<Response> {
+): Promise<{ ok: boolean; status: number; errText?: string }> {
   const res = await fetch(`${endpoint}/tablesdb/${databaseId}/tables/${tableId}/rows`, {
     method: 'POST',
     headers: adminHeaders,
     body: JSON.stringify({ rowId, data, permissions }),
   });
   if (res.ok || res.status === 409) {
-    return res;
+    return { ok: true, status: res.status };
   }
-  return fetch(`${endpoint}/databases/${databaseId}/collections/${tableId}/documents`, {
-    method: 'POST',
-    headers: adminHeaders,
-    body: JSON.stringify({ documentId: rowId, data, permissions }),
-  });
+  const firstErr = await res.text().catch(() => '');
+  const fallbackRes = await fetch(
+    `${endpoint}/databases/${databaseId}/collections/${tableId}/documents`,
+    {
+      method: 'POST',
+      headers: adminHeaders,
+      body: JSON.stringify({ documentId: rowId, data, permissions }),
+    }
+  );
+  if (fallbackRes.ok || fallbackRes.status === 409) {
+    return { ok: true, status: fallbackRes.status };
+  }
+  const secondErr = await fallbackRes.text().catch(() => '');
+  return {
+    ok: false,
+    status: res.status,
+    errText: `${firstErr.slice(0, 160)} | ${secondErr.slice(0, 160)}`,
+  };
 }
 
 async function getRowWithClientHeaders(
@@ -61,7 +74,6 @@ async function getRowWithClientHeaders(
   if (res.status !== 404) {
     return res;
   }
-  // Also check classic endpoint in case 404 was route-level rather than row-level
   const classicRes = await fetch(
     `${endpoint}/databases/${databaseId}/collections/${tableId}/documents/${rowId}`,
     {
@@ -144,6 +156,7 @@ export async function runRealAppwriteIntegrationSuite(opts?: {
   const suffix = Date.now().toString(36).slice(-5);
   const userAId = `usr_int_a_${suffix}`;
   const userBId = `usr_int_b_${suffix}`;
+  const userPassword = 'TenantPass2026!Secure';
 
   await fetch(`${endpoint}/users`, {
     method: 'POST',
@@ -151,6 +164,7 @@ export async function runRealAppwriteIntegrationSuite(opts?: {
     body: JSON.stringify({
       userId: userAId,
       email: `${userAId}@agba.local`,
+      password: userPassword,
       name: 'Tenant A Integration User',
     }),
   });
@@ -160,6 +174,7 @@ export async function runRealAppwriteIntegrationSuite(opts?: {
     body: JSON.stringify({
       userId: userBId,
       email: `${userBId}@agba.local`,
+      password: userPassword,
       name: 'Tenant B Integration User',
     }),
   });
@@ -169,12 +184,19 @@ export async function runRealAppwriteIntegrationSuite(opts?: {
     headers: adminHeaders,
     body: JSON.stringify({ length: 64, expire: 300 }),
   });
-  const tokenAData = (await tokenARes.json()) as { secret?: string };
-  const sessionARes = await fetch(`${endpoint}/account/sessions/token`, {
+  const tokenAData = (await tokenARes.json().catch(() => ({}))) as { secret?: string };
+  let sessionARes = await fetch(`${endpoint}/account/sessions/token`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'X-Appwrite-Project': projectId },
     body: JSON.stringify({ userId: userAId, secret: tokenAData.secret }),
   });
+  if (!sessionARes.ok) {
+    sessionARes = await fetch(`${endpoint}/account/sessions/email`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Appwrite-Project': projectId },
+      body: JSON.stringify({ email: `${userAId}@agba.local`, password: userPassword }),
+    });
+  }
   const userAAuth = extractAppwriteSessionAuthHeaders(sessionARes.headers);
 
   const tokenBRes = await fetch(`${endpoint}/users/${userBId}/tokens`, {
@@ -182,12 +204,19 @@ export async function runRealAppwriteIntegrationSuite(opts?: {
     headers: adminHeaders,
     body: JSON.stringify({ length: 64, expire: 300 }),
   });
-  const tokenBData = (await tokenBRes.json()) as { secret?: string };
-  const sessionBRes = await fetch(`${endpoint}/account/sessions/token`, {
+  const tokenBData = (await tokenBRes.json().catch(() => ({}))) as { secret?: string };
+  let sessionBRes = await fetch(`${endpoint}/account/sessions/token`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'X-Appwrite-Project': projectId },
     body: JSON.stringify({ userId: userBId, secret: tokenBData.secret }),
   });
+  if (!sessionBRes.ok) {
+    sessionBRes = await fetch(`${endpoint}/account/sessions/email`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Appwrite-Project': projectId },
+      body: JSON.stringify({ email: `${userBId}@agba.local`, password: userPassword }),
+    });
+  }
   const userBAuth = extractAppwriteSessionAuthHeaders(sessionBRes.headers);
 
   const userAClientHeaders: Record<string, string> = {
@@ -212,7 +241,7 @@ export async function runRealAppwriteIntegrationSuite(opts?: {
     detail: `Minted custom tokens (HTTP ${tokenARes.status}/${tokenBRes.status}) and exchanged for real Appwrite sessions (HTTP ${sessionARes.status}/${sessionBRes.status}).`,
   });
 
-  // Test 3: First-Time User Onboarding (Create Isolated Workspace Team + Workspace Metadata Row)
+  // Test 3: First-Time User Onboarding (Create Isolated Workspace Team + Workspace Metadata Row matching `workspaces` schema)
   const onboardTeamId = `ws_onboard_${suffix}`;
   const teamCreateRes = await fetch(`${endpoint}/teams`, {
     method: 'POST',
@@ -230,19 +259,20 @@ export async function runRealAppwriteIntegrationSuite(opts?: {
     onboardTeamId,
     {
       id: onboardTeamId,
-      workspace_id: onboardTeamId,
-      ownerId: userAId,
+      teamId: onboardTeamId,
       name: `Onboarded Workspace ${suffix}`,
-      region: 'Lagos / West Africa',
-      plan: 'Founder Free Stack',
+      slug: `onboard-${suffix}`,
+      planTier: 'free',
+      currency: 'NGN',
+      ownerId: userAId,
       createdAt: new Date().toISOString(),
     },
     [`read("team:${onboardTeamId}")`, `read("user:${userAId}")`]
   );
   results.push({
     name: '3. First-Time User Onboarding (Appwrite Team Creation + Workspace Metadata Row)',
-    passed: (teamCreateRes.ok || teamCreateRes.status === 409) && (wsRowRes.ok || wsRowRes.status === 409),
-    detail: `Created team ${onboardTeamId} (HTTP ${teamCreateRes.status}) and workspace row (HTTP ${wsRowRes.status}).`,
+    passed: (teamCreateRes.ok || teamCreateRes.status === 409) && wsRowRes.ok,
+    detail: `Created team ${onboardTeamId} (HTTP ${teamCreateRes.status}) and workspace row (HTTP ${wsRowRes.status}${wsRowRes.errText ? ': ' + wsRowRes.errText : ''}).`,
   });
 
   // Test 4: Server writes row to `workflows` with Tenant A read permission; Tenant A user CAN read it
@@ -280,7 +310,7 @@ export async function runRealAppwriteIntegrationSuite(opts?: {
   results.push({
     name: '4. Tenant A Authorized Read via Row Security Permission (HTTP 200)',
     passed: writeRowRes.ok && tenantAReadRes.ok,
-    detail: `Server wrote row ${rowId} (HTTP ${writeRowRes.status}); Tenant A direct GET returned HTTP ${tenantAReadRes.status}.`,
+    detail: `Server wrote row ${rowId} (HTTP ${writeRowRes.status}${writeRowRes.errText ? ': ' + writeRowRes.errText : ''}); Tenant A direct GET returned HTTP ${tenantAReadRes.status}.`,
   });
 
   // Test 5: User B (Tenant B, NOT in ws_trendtactics_lagos) calls Appwrite's API directly to read Tenant A's workflow
@@ -351,7 +381,7 @@ export async function runRealAppwriteIntegrationSuite(opts?: {
 
   // Test 8: Server-Only Tables (`byok_keys`, `identity_links`, `webhook_events`, `audit_log`) Return 0 Rows / 401 to Client
   const byokRowId = `key_int_${suffix}`;
-  await createRowWithFallback(
+  const byokWriteRes = await createRowWithFallback(
     endpoint,
     adminHeaders,
     databaseId,
@@ -360,14 +390,14 @@ export async function runRealAppwriteIntegrationSuite(opts?: {
     {
       id: byokRowId,
       workspace_id: 'ws_trendtactics_lagos',
-      ownerId: userAId,
       provider: 'gemini',
       label: 'Encrypted Server Key',
-      fingerprint: 'agba...9999',
-      iv: '00112233445566778899aabb',
-      authTag: '00112233445566778899aabbccddeeff',
-      ciphertext: 'deadbeef',
-      updatedAt: new Date().toISOString(),
+      maskedKey: 'agba...9999',
+      ciphertextHex: 'deadbeef',
+      ivHex: '00112233445566778899aabb',
+      authTagHex: '00112233445566778899aabbccddeeff',
+      createdBy: userAId,
+      createdAt: new Date().toISOString(),
     },
     [] // Server-only: empty permissions array
   );
@@ -387,8 +417,8 @@ export async function runRealAppwriteIntegrationSuite(opts?: {
   }
   results.push({
     name: '8. Server-Only Tables (`byok_keys`, `identity_links`, `webhook_events`, `audit_log`) Zero Client Leakage',
-    passed: serverOnlyChecks.every((count) => count === 0),
-    detail: `Client session row counts across 4 server-only tables: ${JSON.stringify(serverOnlyChecks)}.`,
+    passed: byokWriteRes.ok && serverOnlyChecks.every((count) => count === 0),
+    detail: `Server wrote BYOK row (HTTP ${byokWriteRes.status}); client session row counts across 4 server-only tables: ${JSON.stringify(serverOnlyChecks)}.`,
   });
 
   // Test 9: Storage Bucket (`rag_files`) Direct Client Upload Rejected & Cross-Tenant File View Blocked
