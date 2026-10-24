@@ -16,13 +16,18 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
+      - name: Ensure .env.example Templates Present (If Stripped by Git Exporter)
+        run: |
+          [ -f .env.example ] || cp docs/env.template .env.example
+          [ -f infra/appwrite/.env.example ] || cp infra/appwrite/env.template infra/appwrite/.env.example
+
       - name: Setup Node.js 22
         uses: actions/setup-node@v4
         with:
           node-version: "22"
 
       - name: Install Dependencies
-        run: npm install
+        run: npm install --legacy-peer-deps
 
       - name: TypeScript Strict Typecheck
         run: npm run lint
@@ -54,13 +59,18 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
+      - name: Ensure .env.example Templates Present (If Stripped by Git Exporter)
+        run: |
+          [ -f .env.example ] || cp docs/env.template .env.example
+          [ -f infra/appwrite/.env.example ] || cp infra/appwrite/env.template infra/appwrite/.env.example
+
       - name: Setup Node.js 22
         uses: actions/setup-node@v4
         with:
           node-version: "22"
 
       - name: Install Dependencies
-        run: npm install
+        run: npm install --legacy-peer-deps
 
       - name: Run Official Appwrite 2.6.1 Installer & Diff Against infra/appwrite/docker-compose.yml
         run: |
@@ -76,25 +86,26 @@ jobs:
             --database=postgresql \
             --topology=combined
 
-          echo "=== 1. Raw Line-by-Line Diff (Official Installer vs. infra/appwrite/docker-compose.yml) ==="
-          diff -u /tmp/appwrite-official-install/appwrite/docker-compose.yml infra/appwrite/docker-compose.yml || true
+          sudo chown -R "$(id -u):$(id -g)" /tmp/appwrite-official-install
+
+          echo "=== 1. Raw Line-by-Line Diff (Official Installer vs. infra/appwrite/docker-compose.yml) ===" | tee -a "$GITHUB_STEP_SUMMARY"
+          diff -u /tmp/appwrite-official-install/appwrite/docker-compose.yml infra/appwrite/docker-compose.yml | tee -a "$GITHUB_STEP_SUMMARY" || true
 
           echo "=== 2. Canonical Docker Compose Config Diff (Must Be Identical) ==="
-          if [ -f infra/appwrite/.env.example ]; then
-            cp infra/appwrite/.env.example /tmp/appwrite-official-install/appwrite/.env
-            cp infra/appwrite/.env.example infra/appwrite/.env
-          else
-            cp /tmp/appwrite-official-install/appwrite/.env infra/appwrite/.env
-          fi
+          cp infra/appwrite/.env.example /tmp/appwrite-official-install/appwrite/.env
+          cp infra/appwrite/.env.example infra/appwrite/.env
+          cp infra/appwrite/clickhouse-config.xml /tmp/appwrite-official-install/appwrite/clickhouse-config.xml
+          cp infra/appwrite/clickhouse-init.sh /tmp/appwrite-official-install/appwrite/clickhouse-init.sh
           cp infra/appwrite/docker-compose.yml /tmp/appwrite-official-install/appwrite/repo-docker-compose.yml
 
           docker compose --project-directory /tmp/appwrite-official-install/appwrite -f /tmp/appwrite-official-install/appwrite/docker-compose.yml config > /tmp/official-resolved.yml
           docker compose --project-directory /tmp/appwrite-official-install/appwrite -f /tmp/appwrite-official-install/appwrite/repo-docker-compose.yml config > /tmp/repo-resolved.yml
           diff -u /tmp/official-resolved.yml /tmp/repo-resolved.yml
-          echo "[PASS] infra/appwrite/docker-compose.yml is 100% identical to the official Appwrite 2.6.1 installer output."
+          echo "[PASS] infra/appwrite/docker-compose.yml is 100% identical to the official Appwrite 2.6.1 installer output." | tee -a "$GITHUB_STEP_SUMMARY"
 
       - name: Start Official Unmodified Appwrite 2.6.1 Stack + Separate AGBA Extras
         run: |
+          sudo systemctl stop apache2 nginx || true
           chmod +x infra/appwrite/clickhouse-init.sh
           docker compose \
             --project-directory infra/appwrite \
