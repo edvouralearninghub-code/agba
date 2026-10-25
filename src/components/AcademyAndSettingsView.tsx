@@ -8,7 +8,6 @@ import {
   Lock,
   RefreshCw,
   Server,
-  ExternalLink,
   Bell,
   Plus,
 } from 'lucide-react';
@@ -211,6 +210,7 @@ interface SettingsAndSecurityViewProps {
   modelKeys: MaskedModelKeyRecord[];
   onAddMaskedKey: (provider: ModelProvider, label: string, rawKey: string) => void;
   onWorkspaceCreated?: (ws: Workspace) => void;
+  onNavigateModule?: (module: 'studio' | 'academy' | 'freestack') => void;
   isDark: boolean;
 }
 
@@ -219,6 +219,7 @@ export const SettingsAndSecurityView: React.FC<SettingsAndSecurityViewProps> = (
   modelKeys,
   onAddMaskedKey,
   onWorkspaceCreated,
+  onNavigateModule,
   isDark,
 }) => {
   const [provider, setProvider] = useState<ModelProvider>('openai');
@@ -661,32 +662,51 @@ export const SettingsAndSecurityView: React.FC<SettingsAndSecurityViewProps> = (
               <thead>
                 <tr className="border-b border-current/10 opacity-75">
                   <th className="py-3 pr-3 pl-4">Platform Service</th>
-                  <th className="px-3 py-3">Open-Source Foundation</th>
+                  <th className="px-3 py-3">Integrated Engine</th>
                   <th className="px-3 py-3">License</th>
-                  <th className="py-3 pr-4 pl-3 text-right">Active Items</th>
+                  <th className="px-3 py-3 text-right">Active Items</th>
+                  <th className="py-3 pr-4 pl-3 text-right">In-Platform Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-current/10">
-                {backendOverview.openSourceModules.map((mod) => (
-                  <tr key={mod.name}>
-                    <td className="py-3 pr-3 pl-4 font-semibold">{mod.name}</td>
-                    <td className="px-3 py-3 font-mono">
-                      <a
-                        href={mod.repo}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-[#3B3FA8] hover:underline dark:text-[#D9A441]"
-                      >
-                        <span>{mod.repo.replace('https://github.com/', '')}</span>
-                        <ExternalLink className="h-3 w-3" />
-                      </a>
-                    </td>
-                    <td className="px-3 py-3 font-mono">{mod.license}</td>
-                    <td className="py-3 pr-4 pl-3 text-right font-mono tabular-nums font-semibold">
-                      {mod.recordsCount}
-                    </td>
-                  </tr>
-                ))}
+                {backendOverview.openSourceModules.map((mod) => {
+                  const targetMod: 'studio' | 'academy' | 'freestack' = mod.name
+                    .toLowerCase()
+                    .includes('cms') || mod.name.toLowerCase().includes('stack')
+                    ? 'freestack'
+                    : mod.name.toLowerCase().includes('academy')
+                      ? 'academy'
+                      : 'studio';
+
+                  return (
+                    <tr key={mod.name}>
+                      <td className="py-3 pr-3 pl-4 font-semibold">{mod.name}</td>
+                      <td className="px-3 py-3 font-mono opacity-80">
+                        {mod.repo.replace('https://github.com/', '')} · Built-In
+                      </td>
+                      <td className="px-3 py-3 font-mono">{mod.license}</td>
+                      <td className="px-3 py-3 text-right font-mono tabular-nums font-semibold">
+                        {mod.recordsCount}
+                      </td>
+                      <td className="py-3 pr-4 pl-3 text-right whitespace-nowrap">
+                        {onNavigateModule ? (
+                          <button
+                            type="button"
+                            onClick={() => onNavigateModule(targetMod)}
+                            className="inline-flex items-center gap-1 rounded-md bg-[#D9A441] px-2.5 py-1 text-[11px] font-semibold text-[#0F1226] hover:bg-[#c89332]"
+                          >
+                            <span>Open in AGBA</span>
+                            <ArrowRight className="h-3 w-3" />
+                          </button>
+                        ) : (
+                          <span className="font-mono text-[11px] text-[#2E8B57] dark:text-[#D9A441]">
+                            Active in AGBA
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

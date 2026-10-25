@@ -51,11 +51,19 @@ export const PublicChatView: React.FC<PublicChatViewProps> = ({
   const [showEmbedDrawer, setShowEmbedDrawer] = useState<boolean>(false);
   const [copiedType, setCopiedType] = useState<'embed' | 'curl' | null>(null);
 
-  const publicUrl = `${window.location.origin}/chat/${workspace.slug}/${workflow.id}`;
-  const restEndpointUrl = `${window.location.origin}/api/v1/workspaces/${workspace.id}/apps/${workflow.id}/run`;
+  const cleanOrigin =
+    typeof window !== 'undefined' &&
+    !window.location.hostname.includes('.run.app') &&
+    !window.location.hostname.includes('ais-')
+      ? window.location.origin
+      : 'https://agba-pi.vercel.app';
+
+  const inPlatformPath = `/chat/${workspace.slug}/${workflow.id}`;
+  const publicUrl = `${cleanOrigin}${inPlatformPath}`;
+  const restEndpointUrl = `${cleanOrigin}/api/v1/workspaces/${workspace.id}/apps/${workflow.id}/run`;
 
   const embedCode = `<script
-  src="${window.location.origin}/embed/agba-widget.js"
+  src="${cleanOrigin}/embed/agba-widget.js"
   data-workspace-id="${workspace.id}"
   data-app-id="${workflow.id}"
   data-theme="${isDark ? 'dark' : 'light'}"
@@ -167,9 +175,11 @@ export const PublicChatView: React.FC<PublicChatViewProps> = ({
           </button>
           <div>
             <div className="flex items-center gap-2 text-xs opacity-75">
-              <span>Published Shareable App</span>
+              <span>AGBA In-Platform App</span>
               <span aria-hidden="true">·</span>
-              <span className="font-mono">{publicUrl}</span>
+              <span>{workspace.name}</span>
+              <span aria-hidden="true">·</span>
+              <span className="font-mono">{inPlatformPath}</span>
             </div>
             <h1 className="font-display text-base font-bold sm:text-lg">{workflow.name}</h1>
           </div>

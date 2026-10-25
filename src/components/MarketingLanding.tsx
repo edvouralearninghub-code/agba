@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import {
   ArrowRight,
   BookOpen,
@@ -14,6 +15,9 @@ import {
   ChevronDown,
   Menu,
   X,
+  Lock,
+  Play,
+  Pause,
 } from 'lucide-react';
 import { AdirePattern } from './AdirePattern.tsx';
 import { AgbaLogoMark, AgbaHeroBackdrop } from './AgbaLogoMark.tsx';
@@ -44,6 +48,9 @@ export const MarketingLanding: React.FC<MarketingLandingProps> = ({
 }) => {
   const [pricingCurrency, setPricingCurrency] = useState<'NGN' | 'USD'>('NGN');
   const [previewRunning, setPreviewRunning] = useState<boolean>(true);
+  const [activeJourneyStep, setActiveJourneyStep] = useState<0 | 1 | 2>(0);
+  const [activePreviewNode, setActivePreviewNode] = useState<number>(1);
+  const [openFaqIdx, setOpenFaqIdx] = useState<number | null>(0);
   const [liveFreeStack, setLiveFreeStack] = useState<FreeStackEntry[]>(FREE_STACK_ENTRIES);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [mobileNavOpen, setMobileNavOpen] = useState<boolean>(false);
@@ -60,6 +67,65 @@ export const MarketingLanding: React.FC<MarketingLandingProps> = ({
         // Fallback to local verified entries
       });
   }, []);
+
+  // Cycle active node in the live Studio infographic when previewRunning is true
+  useEffect(() => {
+    if (!previewRunning) return;
+    const timer = setInterval(() => {
+      setActivePreviewNode((prev) => (prev + 1) % 3);
+    }, 2200);
+    return () => clearInterval(timer);
+  }, [previewRunning]);
+
+  // Compute category distribution for the Free Stack visual bar infographic
+  const categoryStats = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const item of liveFreeStack) {
+      counts[item.category] = (counts[item.category] || 0) + 1;
+    }
+    return Object.entries(counts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 6)
+      .map(([cat, count]) => ({
+        category: cat as FreeStackCategory,
+        count,
+        pct: Math.round((count / Math.max(1, liveFreeStack.length)) * 100),
+      }));
+  }, [liveFreeStack]);
+
+  const journeySteps = [
+    {
+      num: '01',
+      verb: 'Learn',
+      module: 'AGBA Academy',
+      headline: 'Pick a working AI agent template',
+      summary: `Choose from ${ACADEMY_TEMPLATES.length} ready-to-run workflows (Document Q&A, CSV Analyst, Support Triage, Podcast Producer) and inspect every step.`,
+      ctaLabel: 'Browse Academy Templates',
+      action: () => onEnterAcademy('All'),
+      metric: `${ACADEMY_TEMPLATES.length} Templates`,
+    },
+    {
+      num: '02',
+      verb: 'Build',
+      module: 'AGBA Studio',
+      headline: 'Connect your keys & private files',
+      summary:
+        'Attach your own Gemini, OpenAI, Claude, Mistral, or local Ollama keys, drop in PDFs/DOCX files, and test cited answers on the visual canvas.',
+      ctaLabel: 'Open Visual Studio',
+      action: () => onEnterStudio(),
+      metric: '5 Model Providers',
+    },
+    {
+      num: '03',
+      verb: 'Ship',
+      module: 'Free Stack & Publish',
+      headline: 'Publish a shareable link or REST API',
+      summary: `Launch your assistant as a public chat page or webhook backed by ${liveFreeStack.length} verified always-free cloud, database, and DevOps tiers.`,
+      ctaLabel: 'Explore Free Stack',
+      action: () => onEnterFreeStack({ category: 'All' }),
+      metric: `${liveFreeStack.length} Free Services`,
+    },
+  ];
 
   const navigationMenus = [
     {
@@ -188,7 +254,7 @@ export const MarketingLanding: React.FC<MarketingLandingProps> = ({
         isDark ? 'bg-[#0E1030] text-[#FAF6EC]' : 'bg-[#FAF6EC] text-[#0F1226]'
       }`}
     >
-      {/* Top Navigation Bar with Accessible Sub-Menus */}
+      {/* Top Navigation Bar */}
       <header
         className={`sticky top-0 z-30 border-b backdrop-blur-md ${
           isDark
@@ -197,7 +263,6 @@ export const MarketingLanding: React.FC<MarketingLandingProps> = ({
         }`}
       >
         <div className="mx-auto flex max-w-[1200px] items-center justify-between gap-2 px-3 py-3 sm:gap-4 sm:px-6 md:gap-8 md:py-4">
-          {/* Zone 1: Brand Crest & Wordmark */}
           <a
             href="#top"
             className="group inline-flex items-center gap-2 font-display text-lg font-bold tracking-tight whitespace-nowrap shrink-0 sm:gap-2.5 sm:text-xl"
@@ -206,7 +271,6 @@ export const MarketingLanding: React.FC<MarketingLandingProps> = ({
             <span>AGBA</span>
           </a>
 
-          {/* Zone 2: 5 Navigation Links with Rich Sub-Menus */}
           <nav
             aria-label="Primary Navigation"
             className="hidden md:flex items-center gap-6 text-sm font-medium"
@@ -269,7 +333,6 @@ export const MarketingLanding: React.FC<MarketingLandingProps> = ({
             })}
           </nav>
 
-          {/* Zone 3: Theme Toggle, Primary Action & Mobile Hamburger */}
           <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
             <button
               type="button"
@@ -305,7 +368,6 @@ export const MarketingLanding: React.FC<MarketingLandingProps> = ({
           </div>
         </div>
 
-        {/* Mobile Expandable Sub-Menu Drawer */}
         {mobileNavOpen && (
           <div
             className={`border-t px-4 py-4 md:hidden ${
@@ -315,9 +377,7 @@ export const MarketingLanding: React.FC<MarketingLandingProps> = ({
             <div className="space-y-4">
               {navigationMenus.map((menu) => (
                 <div key={menu.id} className="space-y-1.5">
-                  <div className="text-xs font-semibold uppercase tracking-wider opacity-65">
-                    {menu.label}
-                  </div>
+                  <div className="text-xs font-semibold opacity-65">{menu.label}</div>
                   <div className="grid gap-1.5 sm:grid-cols-2">
                     {menu.items.map((sub) => (
                       <button
@@ -345,10 +405,10 @@ export const MarketingLanding: React.FC<MarketingLandingProps> = ({
         )}
       </header>
 
-      {/* SECTION 1: HERO (with bespoke Adire texture + ambient Àgbà Wisdom Tapestry in background) */}
+      {/* SECTION 1: CINEMATIC HERO + INTERACTIVE 3-STEP "LEARN -> BUILD -> SHIP" LAUNCHER */}
       <section
         id="top"
-        className={`relative overflow-hidden border-b py-20 md:py-28 ${
+        className={`relative overflow-hidden border-b py-16 md:py-24 ${
           isDark ? 'border-white/10 bg-[#0E1030]' : 'border-[#0F1226]/10 bg-[#FAF6EC]'
         }`}
       >
@@ -356,24 +416,28 @@ export const MarketingLanding: React.FC<MarketingLandingProps> = ({
         <AgbaHeroBackdrop isDark={isDark} />
 
         <div className="relative z-10 mx-auto max-w-[1200px] px-4 sm:px-6">
-          <div className="max-w-2xl">
+          <motion.div
+            initial={{ opacity: 0, y: 18 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.55, ease: 'easeOut' }}
+            className="max-w-2xl"
+          >
             <p className="text-xs font-medium opacity-80">
               Built in Lagos by Trendtactics Digital · AI Learning, Building &amp; Shipping Platform
             </p>
             <h1
-              className="font-display mt-3 text-[36px] leading-[1.12] font-bold tracking-tight sm:text-[44px] lg:text-[56px]"
+              className="font-display mt-3 text-[36px] leading-[1.1] font-bold tracking-tight sm:text-[46px] lg:text-[56px]"
               style={{ textWrap: 'balance' }}
             >
               Build AI the wise way.
             </h1>
-            <p className="mt-5 max-w-xl text-base leading-relaxed opacity-90 sm:text-lg">
-              Every community has an <em>àgbà</em> — the elder who has seen it before and shows you
-              the way. AGBA puts learning, visual building, and verified always-free deployment
-              tools in one calm workspace so you can ship real AI apps with your own model keys.
+            <p className="mt-4 max-w-xl text-base leading-relaxed opacity-90 sm:text-lg">
+              Like the community <em>àgbà</em> who shows you the proven path, AGBA unites guided
+              agent templates, a visual RAG studio, and {liveFreeStack.length} always-free cloud
+              tools in one calm workspace.
             </p>
 
-            {/* Primary & Secondary CTAs (Max 2 visible at once) */}
-            <div className="mt-8 flex flex-wrap items-center gap-4">
+            <div className="mt-7 flex flex-wrap items-center gap-3.5">
               <button
                 type="button"
                 onClick={onEnterStudio}
@@ -391,695 +455,831 @@ export const MarketingLanding: React.FC<MarketingLandingProps> = ({
                     : 'border-[#0F1226]/30 text-[#0F1226] hover:bg-[#0F1226]/5'
                 }`}
               >
-                <span>Explore the Free Stack</span>
+                <span>Explore Free Stack ({liveFreeStack.length})</span>
               </button>
+            </div>
+          </motion.div>
+
+          {/* Interactive 3-Step Journey Infographic Strip (Answers "How do I Learn, Build & Ship?") */}
+          <motion.div
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.15, ease: 'easeOut' }}
+            className="mt-12 grid gap-4 md:grid-cols-3"
+          >
+            {journeySteps.map((step, idx) => {
+              const isSelected = activeJourneyStep === idx;
+              return (
+                <div
+                  key={step.num}
+                  onMouseEnter={() => setActiveJourneyStep(idx as 0 | 1 | 2)}
+                  onClick={() => setActiveJourneyStep(idx as 0 | 1 | 2)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      setActiveJourneyStep(idx as 0 | 1 | 2);
+                    }
+                  }}
+                  className={`group relative flex cursor-pointer flex-col justify-between rounded-2xl border p-5 backdrop-blur-md transition-all duration-200 ${
+                    isSelected
+                      ? isDark
+                        ? 'border-[#D9A441] bg-[#1B1F5E]/80 shadow-lg'
+                        : 'border-[#3B3FA8] bg-white/95 shadow-lg'
+                      : isDark
+                        ? 'border-white/15 bg-[#0E1030]/75 hover:border-white/30'
+                        : 'border-[#0F1226]/15 bg-white/75 hover:border-[#0F1226]/30'
+                  }`}
+                >
+                  <div>
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-mono font-bold text-[#3B3FA8] dark:text-[#D9A441]">
+                        STEP {step.num} · {step.verb.toUpperCase()}
+                      </span>
+                      <span className="font-mono text-[11px] opacity-75">{step.metric}</span>
+                    </div>
+                    <h2 className="font-display mt-2 text-lg font-bold">{step.headline}</h2>
+                    <p className="mt-1.5 text-xs leading-relaxed opacity-85">{step.summary}</p>
+                  </div>
+
+                  <div className="mt-4 flex items-center justify-between border-t border-current/10 pt-3">
+                    <span className="text-[11px] opacity-70">{step.module}</span>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        step.action();
+                      }}
+                      className="inline-flex items-center gap-1 text-xs font-semibold text-[#3B3FA8] hover:underline dark:text-[#D9A441]"
+                    >
+                      <span>{step.ctaLabel}</span>
+                      <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </motion.div>
+        </div>
+      </section>
+
+      {/* SECTION 2: VISUAL ARCHITECTURE INFOGRAPHIC (Replaces Wordy "Challenge" Text Blocks) */}
+      <section id="pillars" className="mx-auto max-w-[1200px] px-4 py-16 sm:px-6 md:py-20">
+        <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
+          <div>
+            <div className="text-xs font-semibold opacity-70">01. Visual Architecture Infographic</div>
+            <h2
+              className="font-display mt-1.5 text-2xl font-bold sm:text-[32px]"
+              style={{ textWrap: 'balance' }}
+            >
+              Five scattered subscriptions unified into one sovereign pipeline.
+            </h2>
+          </div>
+          <button
+            type="button"
+            onClick={onEnterStudio}
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#3B3FA8] hover:underline dark:text-[#D9A441]"
+          >
+            <span>Open live Studio pipeline</span>
+            <ArrowRight className="h-3.5 w-3.5" />
+          </button>
+        </div>
+
+        {/* Animated Convergence Infographic */}
+        <div
+          className={`mt-8 rounded-2xl border p-6 sm:p-8 ${
+            isDark ? 'border-white/15 bg-[#1B1F5E]/25' : 'border-[#0F1226]/15 bg-white'
+          }`}
+        >
+          <div className="grid items-center gap-6 lg:grid-cols-12">
+            {/* Left Column: 4 Inputs (Templates, BYOK Keys, Private Docs, Safe Tools) */}
+            <div className="grid gap-3 sm:grid-cols-2 lg:col-span-5 lg:grid-cols-1">
+              {[
+                {
+                  code: '01',
+                  label: 'Academy Starter Agents',
+                  detail: `${ACADEMY_TEMPLATES.length} inspectable templates · Hosted & Ollama`,
+                  icon: <BookOpen className="h-4 w-4 text-[#D9A441]" />,
+                },
+                {
+                  code: '02',
+                  label: 'AES-256-GCM BYOK Vault',
+                  detail: 'Gemini · OpenAI · Claude · Mistral · Local Llama',
+                  icon: <Lock className="h-4 w-4 text-[#2E8B57]" />,
+                },
+                {
+                  code: '03',
+                  label: 'Multi-Dimension pgvector RLS',
+                  detail: '768 / 1024 / 1536 vectors · Tenant isolated',
+                  icon: <Database className="h-4 w-4 text-[#3B3FA8] dark:text-[#D9A441]" />,
+                },
+                {
+                  code: '04',
+                  label: 'Allowlisted Agent Tools',
+                  detail: 'Calculator · Web Search · SSRF-Filtered Webhooks',
+                  icon: <Wrench className="h-4 w-4 text-[#C9821B]" />,
+                },
+              ].map((node, i) => (
+                <motion.div
+                  key={node.code}
+                  initial={{ opacity: 0, x: -16 }}
+                  whileInView={{ opacity: 1, x: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.35, delay: i * 0.08 }}
+                  className={`flex items-center justify-between rounded-xl border p-3.5 ${
+                    isDark ? 'border-white/10 bg-[#0E1030]' : 'border-[#0F1226]/10 bg-[#FAF6EC]'
+                  }`}
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="shrink-0">{node.icon}</div>
+                    <div className="min-w-0">
+                      <div className="truncate text-xs font-semibold">{node.label}</div>
+                      <div className="truncate font-mono text-[11px] opacity-75">{node.detail}</div>
+                    </div>
+                  </div>
+                  <span className="ml-2 font-mono text-[11px] opacity-55">{node.code}</span>
+                </motion.div>
+              ))}
+            </div>
+
+            {/* Center Animated SVG Conduit */}
+            <div className="flex flex-col items-center justify-center lg:col-span-2">
+              <svg
+                className="h-16 w-40 rotate-90 lg:h-48 lg:w-full lg:rotate-0"
+                viewBox="0 0 120 160"
+                fill="none"
+                aria-hidden="true"
+              >
+                <path
+                  d="M 4 24 C 60 24, 60 80, 112 80"
+                  stroke="#D9A441"
+                  strokeWidth="1.75"
+                  strokeOpacity="0.65"
+                  className="agba-flow-active"
+                />
+                <path
+                  d="M 4 60 C 60 60, 60 80, 112 80"
+                  stroke="#3B3FA8"
+                  strokeWidth="1.75"
+                  strokeOpacity="0.7"
+                  className="agba-flow-active"
+                />
+                <path
+                  d="M 4 100 C 60 100, 60 80, 112 80"
+                  stroke="#2E8B57"
+                  strokeWidth="1.75"
+                  strokeOpacity="0.7"
+                  className="agba-flow-active"
+                />
+                <path
+                  d="M 4 136 C 60 136, 60 80, 112 80"
+                  stroke="#D9A441"
+                  strokeWidth="1.75"
+                  strokeOpacity="0.65"
+                  className="agba-flow-active"
+                />
+                <circle cx="112" cy="80" r="5" fill="#D9A441" />
+              </svg>
+            </div>
+
+            {/* Right Column: Unified AGBA Core & Outputs */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.97 }}
+              whileInView={{ opacity: 1, scale: 1 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.45 }}
+              className={`rounded-2xl border p-5 lg:col-span-5 ${
+                isDark ? 'border-[#D9A441]/60 bg-[#0E1030]' : 'border-[#3B3FA8] bg-[#FAF6EC]'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <div className="inline-flex items-center gap-2 font-display text-base font-bold">
+                  <AgbaLogoMark size={24} />
+                  <span>AGBA Single Source of Truth</span>
+                </div>
+                <span className="font-mono text-[11px] text-[#2E8B57] dark:text-[#D9A441]">
+                  ADR-008 Active
+                </span>
+              </div>
+
+              <div className="mt-4 grid grid-cols-3 gap-2.5 text-center">
+                <div
+                  className={`rounded-xl border p-3 ${
+                    isDark ? 'border-white/10 bg-[#1B1F5E]/40' : 'border-[#0F1226]/10 bg-white'
+                  }`}
+                >
+                  <div className="font-mono text-lg font-bold text-[#3B3FA8] dark:text-[#D9A441]">
+                    10
+                  </div>
+                  <div className="mt-0.5 text-[11px] opacity-80">TablesDB Tables</div>
+                </div>
+                <div
+                  className={`rounded-xl border p-3 ${
+                    isDark ? 'border-white/10 bg-[#1B1F5E]/40' : 'border-[#0F1226]/10 bg-white'
+                  }`}
+                >
+                  <div className="font-mono text-lg font-bold text-[#3B3FA8] dark:text-[#D9A441]">
+                    0%
+                  </div>
+                  <div className="mt-0.5 text-[11px] opacity-80">Token Markup</div>
+                </div>
+                <div
+                  className={`rounded-xl border p-3 ${
+                    isDark ? 'border-white/10 bg-[#1B1F5E]/40' : 'border-[#0F1226]/10 bg-white'
+                  }`}
+                >
+                  <div className="font-mono text-lg font-bold text-[#3B3FA8] dark:text-[#D9A441]">
+                    {liveFreeStack.length}
+                  </div>
+                  <div className="mt-0.5 text-[11px] opacity-80">Free-Tier Tools</div>
+                </div>
+              </div>
+
+              <div className="mt-4 space-y-2 border-t border-current/10 pt-3.5 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="opacity-80">Public Shareable Chat URL</span>
+                  <span className="font-mono text-[11px] text-[#2E8B57] dark:text-[#D9A441]">
+                    /chat/:workspace/:appId
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="opacity-80">Production REST Webhook</span>
+                  <span className="font-mono text-[11px] text-[#2E8B57] dark:text-[#D9A441]">
+                    POST /api/v1/workspaces/:id
+                  </span>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        </div>
+      </section>
+
+      {/* SECTION 3: INTERACTIVE STUDIO ANIMATED FLOW PREVIEW */}
+      <section
+        id="studio-preview"
+        className={`border-y py-16 md:py-20 ${
+          isDark ? 'border-white/10 bg-[#1B1F5E]/20' : 'border-[#0F1226]/10 bg-white/60'
+        }`}
+      >
+        <div className="mx-auto max-w-[1200px] px-4 sm:px-6">
+          <div className="mb-6 flex flex-col justify-between gap-4 md:flex-row md:items-end">
+            <div>
+              <div className="text-xs font-semibold opacity-70">02. Interactive Studio Motion</div>
+              <h2 className="font-display mt-1.5 text-2xl font-bold sm:text-[32px]">
+                Watch a cited RAG workflow execute step by step.
+              </h2>
+            </div>
+            <div className="flex items-center gap-2.5">
+              <button
+                type="button"
+                onClick={() => setPreviewRunning((r) => !r)}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-current/20 px-3.5 py-2 text-xs font-medium hover:bg-current/5 whitespace-nowrap shrink-0"
+              >
+                {previewRunning ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
+                <span>{previewRunning ? 'Pause Animation' : 'Play Animation'}</span>
+              </button>
+              <button
+                type="button"
+                onClick={onEnterStudio}
+                className="rounded-lg bg-[#D9A441] px-4 py-2 text-xs font-semibold text-[#0F1226] hover:bg-[#c89332] whitespace-nowrap shrink-0"
+              >
+                Launch Full Studio
+              </button>
+            </div>
+          </div>
+
+          <div
+            className={`overflow-hidden rounded-2xl border ${
+              isDark ? 'border-white/15 bg-[#0E1030]' : 'border-[#0F1226]/15 bg-white'
+            }`}
+          >
+            <div
+              className={`flex flex-wrap items-center justify-between gap-2 border-b px-4 py-2.5 text-xs ${
+                isDark ? 'border-white/10 bg-[#1B1F5E]/40' : 'border-[#0F1226]/10 bg-[#FAF6EC]'
+              }`}
+            >
+              <div className="flex items-center gap-2 font-medium">
+                <span>SME Policy &amp; Compliance Assistant</span>
+                <span aria-hidden="true">·</span>
+                <span className="opacity-75">Trendtactics Digital Workspace</span>
+              </div>
+              <div className="font-mono text-[11px] opacity-75">
+                Active Stage: 0{activePreviewNode + 1} / 03
+              </div>
+            </div>
+
+            <div className="grid gap-6 p-6 lg:grid-cols-12">
+              <div className="flex flex-col justify-center lg:col-span-8">
+                <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
+                  {[
+                    {
+                      step: '01',
+                      title: 'Document Ingestion',
+                      sub: 'PDF / DOCX parsed & chunked',
+                      metric: '10 MB max · zlib',
+                      icon: <Database className="h-4 w-4 text-[#D9A441]" />,
+                    },
+                    {
+                      step: '02',
+                      title: 'pgvector Retrieval',
+                      sub: 'Top-K cosine match with RLS',
+                      metric: 'cosine: 0.94',
+                      icon: <ShieldCheck className="h-4 w-4 text-[#2E8B57]" />,
+                    },
+                    {
+                      step: '03',
+                      title: 'Cited Synthesis',
+                      sub: 'Grounded answer + filename',
+                      metric: '180 ms',
+                      icon: <Cpu className="h-4 w-4 text-[#3B3FA8] dark:text-[#D9A441]" />,
+                    },
+                  ].map((n, idx) => {
+                    const isCurrent = previewRunning && activePreviewNode === idx;
+                    return (
+                      <React.Fragment key={n.step}>
+                        <motion.div
+                          animate={{
+                            scale: isCurrent ? 1.02 : 1,
+                          }}
+                          transition={{ duration: 0.25 }}
+                          onClick={() => setActivePreviewNode(idx)}
+                          className={`flex-1 cursor-pointer rounded-xl border p-4 transition-colors ${
+                            isCurrent ? 'agba-node-executing border-[#D9A441]' : ''
+                          } ${
+                            isDark
+                              ? 'border-white/15 bg-[#1B1F5E]/35'
+                              : 'border-[#0F1226]/15 bg-[#FAF6EC]'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="font-mono font-semibold">STEP {n.step}</span>
+                            {n.icon}
+                          </div>
+                          <div className="font-display mt-2 text-sm font-semibold">{n.title}</div>
+                          <div className="mt-0.5 text-[11px] opacity-75">{n.sub}</div>
+                          <div className="mt-2.5 border-t border-current/10 pt-2 font-mono text-[10px] text-[#3B3FA8] dark:text-[#D9A441]">
+                            {n.metric}
+                          </div>
+                        </motion.div>
+                        {idx < 2 && (
+                          <svg
+                            className="mx-auto h-6 w-6 rotate-90 sm:h-6 sm:w-10 sm:rotate-0 shrink-0"
+                            viewBox="0 0 40 24"
+                            fill="none"
+                            aria-hidden="true"
+                          >
+                            <line
+                              x1="0"
+                              y1="12"
+                              x2="32"
+                              y2="12"
+                              stroke="#D9A441"
+                              strokeWidth="2"
+                              className={previewRunning ? 'agba-flow-active' : ''}
+                            />
+                            <polygon points="30,7 40,12 30,17" fill="#D9A441" />
+                          </svg>
+                        )}
+                      </React.Fragment>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div
+                className={`flex flex-col justify-between rounded-xl border p-4 text-xs lg:col-span-4 ${
+                  isDark ? 'border-white/10 bg-[#1B1F5E]/30' : 'border-[#0F1226]/10 bg-[#FAF6EC]'
+                }`}
+              >
+                <div>
+                  <div className="flex items-center justify-between font-semibold">
+                    <span>Verified Cited Output</span>
+                    <span className="font-mono text-[10px] text-[#2E8B57] dark:text-[#D9A441]">
+                      100% Grounded
+                    </span>
+                  </div>
+                  <p className="mt-2 leading-relaxed opacity-85">
+                    &ldquo;Merchant settlements are verified with HMAC-SHA512 and recorded in NGN
+                    kobo or USD cents with idempotent replay protection.&rdquo;
+                  </p>
+                </div>
+                <div className="mt-3 border-t border-current/10 pt-2 font-mono text-[11px] opacity-75">
+                  Citation: [Lagos_SME_Settlement_Guide.pdf]
+                </div>
+              </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* SECTION 2: THE PROBLEM */}
-      <section className="mx-auto max-w-[1200px] px-4 py-16 sm:px-6 md:py-24">
-        <div className="max-w-3xl">
-          <div className="text-xs font-semibold opacity-70">01. The Challenge</div>
-          <h2
-            className="font-display mt-2 text-2xl font-bold sm:text-[32px]"
-            style={{ textWrap: 'balance' }}
+      {/* SECTION 4: ACADEMY TEMPLATES (Compact Scannable Cards) */}
+      <section id="academy" className="mx-auto max-w-[1200px] px-4 py-16 sm:px-6 md:py-20">
+        <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
+          <div>
+            <div className="text-xs font-semibold opacity-70">03. AGBA Academy</div>
+            <h2 className="font-display mt-1.5 text-2xl font-bold sm:text-[32px]">
+              Start from {ACADEMY_TEMPLATES.length} working agents, not a blank screen.
+            </h2>
+          </div>
+          <button
+            type="button"
+            onClick={() => onEnterAcademy('All')}
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#3B3FA8] hover:underline dark:text-[#D9A441]"
           >
-            Good ideas stall when tools are scattered and cloud bills surprise you.
-          </h2>
-          <p className="mt-4 text-base leading-relaxed opacity-85">
-            AI tools are scattered across dozens of sites, tutorials assume you already know the
-            answer, and hidden platform markups drain budgets before your first user arrives.
-          </p>
+            <span>View all {ACADEMY_TEMPLATES.length} templates</span>
+            <ArrowRight className="h-3.5 w-3.5" />
+          </button>
         </div>
 
-        <div className="mt-10 grid gap-6 md:grid-cols-3">
-          {[
-            {
-              num: '01',
-              title: 'Fragmented Subscriptions',
-              body: 'Builders juggle separate logins for prompt testing, vector databases, authentication, and webhooks before launching a single assistant.',
-            },
-            {
-              num: '02',
-              title: 'Tutorials That Stop Too Early',
-              body: 'Most examples skip workspace privacy, key protection, and document citations — leaving founders stuck when moving to production.',
-            },
-            {
-              num: '03',
-              title: 'Opaque API Key Markups',
-              body: 'Closed platforms lock you into bundled token credits instead of letting you bring your own Gemini, OpenAI, Anthropic, or local Llama keys.',
-            },
-          ].map((item) => (
-            <div
-              key={item.num}
-              className={`rounded-xl border p-6 ${
+        <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {ACADEMY_TEMPLATES.slice(0, 4).map((tpl, idx) => (
+            <motion.div
+              key={tpl.id}
+              initial={{ opacity: 0, y: 14 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.3, delay: idx * 0.06 }}
+              className={`flex flex-col justify-between rounded-xl border p-5 ${
                 isDark ? 'border-white/10 bg-[#1B1F5E]/30' : 'border-[#0F1226]/10 bg-white'
               }`}
             >
-              <div className="font-mono text-xs font-semibold text-[#3B3FA8] dark:text-[#D9A441]">
-                {item.num}.
+              <div>
+                <div className="flex items-center justify-between text-xs opacity-70">
+                  <span className="font-mono">
+                    0{idx + 1} · {tpl.track}
+                  </span>
+                  <span className="font-mono tabular-nums">{tpl.nodes.length} nodes</span>
+                </div>
+                <h3 className="font-display mt-2 text-base font-semibold leading-snug">
+                  {tpl.title}
+                </h3>
+                <p className="mt-1.5 line-clamp-2 text-xs leading-relaxed opacity-80">
+                  {tpl.summary}
+                </p>
               </div>
-              <h3 className="font-display mt-2 text-xl font-semibold">{item.title}</h3>
-              <p className="mt-2 text-sm leading-relaxed opacity-85">{item.body}</p>
+              <button
+                type="button"
+                onClick={() => onOpenTemplateInStudio(tpl)}
+                className="mt-4 inline-flex items-center gap-1.5 border-t border-current/10 pt-3 text-xs font-semibold text-[#3B3FA8] hover:underline dark:text-[#D9A441]"
+              >
+                <span>Load in Studio</span>
+                <ArrowRight className="h-3.5 w-3.5" />
+              </button>
+            </motion.div>
+          ))}
+        </div>
+      </section>
+
+      {/* SECTION 5: FREE STACK INFOGRAPHIC + LIVE DIRECTORY SLICE */}
+      <section
+        id="free-stack"
+        className={`border-t py-16 md:py-20 ${
+          isDark ? 'border-white/10 bg-[#1B1F5E]/20' : 'border-[#0F1226]/10 bg-white/60'
+        }`}
+      >
+        <div className="mx-auto max-w-[1200px] px-4 sm:px-6">
+          <div
+            className={`rounded-2xl border p-6 sm:p-8 ${
+              isDark ? 'border-white/15 bg-[#0E1030]' : 'border-[#0F1226]/15 bg-white'
+            }`}
+          >
+            <div className="flex flex-col justify-between gap-6 lg:flex-row lg:items-center">
+              <div className="max-w-xl">
+                <div className="flex flex-wrap items-center gap-2 text-xs opacity-75">
+                  <span>04. AGBA Free Stack Infographic</span>
+                  <span aria-hidden="true">·</span>
+                  <span className="font-mono tabular-nums font-semibold text-[#3B3FA8] dark:text-[#D9A441]">
+                    {liveFreeStack.length} Verified Always-Free Services
+                  </span>
+                </div>
+                <h2 className="font-display mt-1.5 text-2xl font-bold sm:text-[32px]">
+                  Ship with infrastructure that costs nothing to start.
+                </h2>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => onEnterFreeStack({ category: 'All', openCms: true })}
+                  className="inline-flex items-center gap-2 rounded-lg border border-current/20 px-4 py-2.5 text-xs font-semibold hover:bg-current/5 whitespace-nowrap"
+                >
+                  <span>Manage Entries (CMS)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onEnterFreeStack({ category: 'All' })}
+                  className="inline-flex items-center gap-2 rounded-lg bg-[#D9A441] px-5 py-2.5 text-xs font-semibold text-[#0F1226] hover:bg-[#c89332] whitespace-nowrap"
+                >
+                  <span>Browse All {liveFreeStack.length} Services</span>
+                  <ArrowRight className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* Visual Category Distribution Bars (Click Any Bar to Filter Directory!) */}
+            <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {categoryStats.map((stat) => (
+                <button
+                  key={stat.category}
+                  type="button"
+                  onClick={() => onEnterFreeStack({ category: stat.category })}
+                  className={`group rounded-xl border p-3.5 text-left transition-colors ${
+                    isDark
+                      ? 'border-white/10 bg-[#1B1F5E]/35 hover:border-[#D9A441]/60'
+                      : 'border-[#0F1226]/10 bg-[#FAF6EC] hover:border-[#3B3FA8]'
+                  }`}
+                >
+                  <div className="flex items-center justify-between text-xs font-semibold">
+                    <span className="truncate">{stat.category}</span>
+                    <span className="font-mono tabular-nums text-[#3B3FA8] dark:text-[#D9A441]">
+                      {stat.count} tools
+                    </span>
+                  </div>
+                  <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-current/10">
+                    <motion.div
+                      initial={{ width: 0 }}
+                      whileInView={{ width: `${Math.max(18, stat.pct * 2.5)}%` }}
+                      viewport={{ once: true }}
+                      transition={{ duration: 0.6, ease: 'easeOut' }}
+                      className="h-full rounded-full bg-[#D9A441]"
+                    />
+                  </div>
+                </button>
+              ))}
+            </div>
+
+            {/* Compact 4-Row Verified Preview Table */}
+            <div className="mt-6 overflow-x-auto border-t border-current/10 pt-5">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="border-b border-current/10 opacity-70">
+                    <th className="py-2 pr-3">Service</th>
+                    <th className="px-3 py-2">Category</th>
+                    <th className="px-3 py-2">Free Tier Summary</th>
+                    <th className="py-2 pl-3 text-right">Verified</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-current/10">
+                  {liveFreeStack.slice(0, 4).map((entry) => (
+                    <tr key={entry.id}>
+                      <td className="py-2.5 pr-3 font-semibold whitespace-nowrap">
+                        <a
+                          href={entry.officialPricingUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 hover:underline"
+                        >
+                          <span>{entry.serviceName}</span>
+                          <ExternalLink className="h-3 w-3 opacity-60" />
+                        </a>
+                      </td>
+                      <td className="px-3 py-2.5 whitespace-nowrap opacity-75">{entry.category}</td>
+                      <td className="px-3 py-2.5 opacity-90">{entry.freeTierSummary}</td>
+                      <td className="py-2.5 pl-3 text-right font-mono tabular-nums whitespace-nowrap opacity-75">
+                        {entry.verifiedOn}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* SECTION 6: TRANSPARENT PRICING & VERIFIABLE PROOF */}
+      <section id="pricing" className="mx-auto max-w-[1200px] px-4 py-16 sm:px-6 md:py-20">
+        <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+          <div>
+            <div className="text-xs font-semibold opacity-70">05. Transparent Pricing</div>
+            <h2 className="font-display mt-1.5 text-2xl font-bold sm:text-[32px]">
+              Pay only for workspace scale. Zero markup on your API keys.
+            </h2>
+          </div>
+
+          <div
+            className={`inline-flex rounded-lg border p-1 self-start ${
+              isDark ? 'border-white/15 bg-[#1B1F5E]/40' : 'border-[#0F1226]/15 bg-white'
+            }`}
+          >
+            {(['NGN', 'USD'] as const).map((curr) => (
+              <button
+                key={curr}
+                type="button"
+                onClick={() => setPricingCurrency(curr)}
+                className={`rounded-md px-3.5 py-1.5 font-mono text-xs font-semibold transition-colors whitespace-nowrap shrink-0 ${
+                  pricingCurrency === curr
+                    ? 'bg-[#D9A441] text-[#0F1226]'
+                    : 'opacity-75 hover:opacity-100'
+                }`}
+              >
+                {curr}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="mt-8 grid gap-5 lg:grid-cols-3">
+          {[
+            {
+              tier: 'Free',
+              subtitle: 'Solo builders & students',
+              price: `${pricingCurrency} [PRICE_TBD] / mo`,
+              features: [
+                '1 workspace · 3 Studio workflows',
+                'BYOK (Gemini, OpenAI, Claude, Mistral, Ollama)',
+                '50 MB private RAG document storage',
+                'Full Free Stack & Academy access',
+              ],
+            },
+            {
+              tier: 'Builder',
+              subtitle: 'Founders & growing SMEs',
+              price: `${pricingCurrency} [PRICE_TBD] / mo`,
+              features: [
+                'Up to 5 team members (RBAC)',
+                '25 Studio apps + Public Chat & REST API',
+                '2 GB pgvector storage · NGN/USD billing',
+                'Automated quota & webhook alerts',
+              ],
+            },
+            {
+              tier: 'Team',
+              subtitle: 'Agencies & multi-workspace teams',
+              price: `${pricingCurrency} [PRICE_TBD] / mo`,
+              features: [
+                'Multi-workspace agency isolation',
+                '10 GB vector knowledge base & audit logs',
+                'Custom allowlisted tools & rate limits',
+                'Priority SMS, email & in-app alerts',
+              ],
+            },
+          ].map((plan, idx) => (
+            <div
+              key={plan.tier}
+              className={`flex flex-col justify-between rounded-xl border p-6 ${
+                idx === 1
+                  ? isDark
+                    ? 'border-[#D9A441] bg-[#1B1F5E]/40'
+                    : 'border-[#3B3FA8] bg-white'
+                  : isDark
+                    ? 'border-white/10 bg-[#1B1F5E]/20'
+                    : 'border-[#0F1226]/10 bg-white'
+              }`}
+            >
+              <div>
+                <div className="text-xs opacity-75">{plan.subtitle}</div>
+                <h3 className="font-display mt-1 text-2xl font-bold">{plan.tier}</h3>
+                <div className="mt-3 border-y border-current/10 py-2.5 font-mono text-base font-semibold text-[#3B3FA8] dark:text-[#D9A441]">
+                  {plan.price}
+                </div>
+                <ul className="mt-3.5 space-y-2 text-xs leading-relaxed">
+                  {plan.features.map((f) => (
+                    <li key={f} className="flex items-start gap-2">
+                      <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#2E8B57] dark:text-[#D9A441]" />
+                      <span>{f}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <button
+                type="button"
+                onClick={onEnterStudio}
+                className={`mt-5 w-full rounded-lg px-4 py-2.5 text-xs font-semibold transition-colors ${
+                  idx === 1
+                    ? 'bg-[#D9A441] text-[#0F1226] hover:bg-[#c89332]'
+                    : 'border border-current/25 hover:bg-current/5'
+                }`}
+              >
+                Start building free
+              </button>
             </div>
           ))}
         </div>
 
-        <div className="mt-8">
-          <button
-            type="button"
-            onClick={onEnterStudio}
-            className="inline-flex items-center gap-2 text-sm font-semibold text-[#3B3FA8] hover:underline dark:text-[#D9A441]"
-          >
-            <span>See how AGBA unifies your stack</span>
-            <ArrowRight className="h-4 w-4" />
-          </button>
-        </div>
-      </section>
-
-      {/* SECTION 3: THREE PILLARS (Learn / Build / Ship) */}
-      <section
-        id="pillars"
-        className={`border-y py-16 md:py-24 ${
-          isDark ? 'border-white/10 bg-[#1B1F5E]/20' : 'border-[#0F1226]/10 bg-white/60'
-        }`}
-      >
-        <div className="mx-auto max-w-[1200px] px-4 sm:px-6">
-          <div className="max-w-3xl">
-            <div className="text-xs font-semibold opacity-70">02. Three Pillars</div>
-            <h2
-              className="font-display mt-2 text-2xl font-bold sm:text-[32px]"
-              style={{ textWrap: 'balance' }}
-            >
-              Three pillars under one roof: Learn, Build, and Ship.
-            </h2>
-          </div>
-
-          <div className="mt-10 grid gap-6 lg:grid-cols-3">
-            <div
-              className={`flex flex-col justify-between rounded-xl border p-6 ${
-                isDark ? 'border-white/10 bg-[#0E1030]' : 'border-[#0F1226]/10 bg-[#FAF6EC]'
-              }`}
-            >
-              <div>
-                <div className="flex items-center gap-2 text-xs opacity-75">
-                  <BookOpen className="h-4 w-4 text-[#D9A441]" />
-                  <span>Pillar 01 · AGBA Academy</span>
-                </div>
-                <h3 className="font-display mt-3 text-2xl font-semibold">Learn</h3>
-                <p className="mt-2 text-sm leading-relaxed opacity-85">
-                  Step-by-step tutorials and working starter agents. Inspect every prompt and step,
-                  run with hosted models or local Llama via Ollama, and import into your workspace in
-                  one click.
-                </p>
-              </div>
-              <div className="mt-6 border-t border-current/10 pt-4 font-mono text-xs opacity-75">
-                {ACADEMY_TEMPLATES.length} interactive templates ready
-              </div>
-            </div>
-
-            <div
-              className={`flex flex-col justify-between rounded-xl border p-6 ${
-                isDark ? 'border-[#D9A441]/50 bg-[#0E1030]' : 'border-[#3B3FA8] bg-[#FAF6EC]'
-              }`}
-            >
-              <div>
-                <div className="flex items-center gap-2 text-xs opacity-75">
-                  <Cpu className="h-4 w-4 text-[#D9A441]" />
-                  <span>Pillar 02 · AGBA Studio</span>
-                </div>
-                <h3 className="font-display mt-3 text-2xl font-semibold">Build</h3>
-                <p className="mt-2 text-sm leading-relaxed opacity-85">
-                  Connect your own API keys, upload PDFs and Word documents to your private
-                  workspace knowledge base, retrieve cited answers, and attach safe tools like
-                  calculators and web search.
-                </p>
-              </div>
-              <div className="mt-6 border-t border-current/10 pt-4 font-mono text-xs opacity-75">
-                Visual workflows · Bring your own keys
-              </div>
-            </div>
-
-            <div
-              className={`flex flex-col justify-between rounded-xl border p-6 ${
-                isDark ? 'border-white/10 bg-[#0E1030]' : 'border-[#0F1226]/10 bg-[#FAF6EC]'
-              }`}
-            >
-              <div>
-                <div className="flex items-center gap-2 text-xs opacity-75">
-                  <Layers className="h-4 w-4 text-[#D9A441]" />
-                  <span>Pillar 03 · AGBA Free Stack</span>
-                </div>
-                <h3 className="font-display mt-3 text-2xl font-semibold">Ship</h3>
-                <p className="mt-2 text-sm leading-relaxed opacity-85">
-                  Publish your Studio workflow as a shareable chat page, website widget, or API
-                  endpoint — backed by our verified directory of always-free cloud, database, and
-                  monitoring tiers.
-                </p>
-              </div>
-              <div className="mt-6 border-t border-current/10 pt-4 font-mono text-xs opacity-75">
-                {liveFreeStack.length} verified free-tier services
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-8">
-            <button
-              type="button"
-              onClick={onEnterStudio}
-              className="rounded-lg bg-[#D9A441] px-5 py-2.5 text-xs font-semibold text-[#0F1226] hover:bg-[#c89332]"
-            >
-              Start building free
-            </button>
-          </div>
-        </div>
-      </section>
-
-      {/* SECTION 4: STUDIO PREVIEW */}
-      <section id="studio-preview" className="mx-auto max-w-[1200px] px-4 py-16 sm:px-6 md:py-24">
-        <div className="mb-8 flex flex-col justify-between gap-4 md:flex-row md:items-end">
-          <div>
-            <div className="text-xs font-semibold opacity-70">03. AGBA Studio Preview</div>
-            <h2 className="font-display mt-2 text-2xl font-bold sm:text-[32px]">
-              Visual workflows designed for clarity, citations, and team privacy.
-            </h2>
-            <p className="mt-2 max-w-2xl text-sm opacity-85">
-              Three-pane workspace: choose building blocks on the left, connect your flow in the
-              center, and fine-tune instructions and citations on the right.
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => setPreviewRunning((r) => !r)}
-              className="rounded-lg border border-current/20 px-3.5 py-2 text-xs font-medium hover:bg-current/5 whitespace-nowrap shrink-0"
-            >
-              {previewRunning ? 'Pause Flow Preview' : 'Play Flow Preview'}
-            </button>
-            <button
-              type="button"
-              onClick={onEnterStudio}
-              className="rounded-lg bg-[#D9A441] px-4 py-2 text-xs font-semibold text-[#0F1226] hover:bg-[#c89332] whitespace-nowrap shrink-0"
-            >
-              Open Studio Workspace
-            </button>
-          </div>
-        </div>
-
-        {/* Live Studio Interactive Preview Frame */}
-        <div
-          className={`overflow-hidden rounded-xl border ${
-            isDark ? 'border-white/15 bg-[#1B1F5E]/30' : 'border-[#0F1226]/15 bg-white'
-          }`}
-        >
-          <div
-            className={`flex flex-wrap items-center justify-between gap-2 border-b px-4 py-2.5 text-xs ${
-              isDark ? 'border-white/10 bg-[#0E1030]' : 'border-[#0F1226]/10 bg-[#FAF6EC]'
-            }`}
-          >
-            <div className="flex items-center gap-2 font-medium">
-              <span>Workflow: SME Policy &amp; Compliance Assistant</span>
-              <span aria-hidden="true">·</span>
-              <span className="opacity-75">Trendtactics Digital Workspace</span>
-            </div>
-            <div className="text-[11px] opacity-75">
-              Private Knowledge Base · Cited Responses · Ready to Publish
-            </div>
-          </div>
-
-          <div className="grid gap-6 p-6 lg:grid-cols-12">
-            <div className="flex flex-col justify-center gap-4 lg:col-span-8">
-              <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-                {[
-                  {
-                    step: '01',
-                    title: 'Document Upload',
-                    sub: 'PDF, Word & Markdown files',
-                    icon: <Database className="h-4 w-4 text-[#D9A441]" />,
-                  },
-                  {
-                    step: '02',
-                    title: 'Knowledge Retrieval',
-                    sub: 'Finds relevant passages',
-                    icon: <ShieldCheck className="h-4 w-4 text-[#2E8B57]" />,
-                  },
-                  {
-                    step: '03',
-                    title: 'Grounded Answer',
-                    sub: 'Replies with source citations',
-                    icon: <Wrench className="h-4 w-4 text-[#3B3FA8] dark:text-[#D9A441]" />,
-                  },
-                ].map((n, idx) => (
-                  <React.Fragment key={n.step}>
-                    <div
-                      className={`flex-1 rounded-xl border p-4 ${
-                        previewRunning && idx === 1 ? 'agba-node-executing' : ''
-                      } ${
-                        isDark
-                          ? 'border-white/15 bg-[#0E1030]'
-                          : 'border-[#0F1226]/15 bg-[#FAF6EC]'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="font-mono font-semibold">{n.step}</span>
-                        {n.icon}
-                      </div>
-                      <div className="font-display mt-2 text-sm font-semibold">{n.title}</div>
-                      <div className="mt-1 text-[11px] opacity-75">{n.sub}</div>
-                    </div>
-                    {idx < 2 && (
-                      <svg
-                        className="mx-auto h-6 w-6 rotate-90 sm:h-6 sm:w-10 sm:rotate-0 shrink-0"
-                        viewBox="0 0 40 24"
-                        fill="none"
-                        aria-hidden="true"
-                      >
-                        <line
-                          x1="0"
-                          y1="12"
-                          x2="32"
-                          y2="12"
-                          stroke="#D9A441"
-                          strokeWidth="2"
-                          className={previewRunning ? 'agba-flow-active' : ''}
-                        />
-                        <polygon points="30,7 40,12 30,17" fill="#D9A441" />
-                      </svg>
-                    )}
-                  </React.Fragment>
-                ))}
-              </div>
-            </div>
-
-            <div
-              className={`rounded-xl border p-4 text-xs lg:col-span-4 ${
-                isDark ? 'border-white/10 bg-[#0E1030]' : 'border-[#0F1226]/10 bg-[#FAF6EC]'
-              }`}
-            >
-              <div className="font-semibold">Cited Output Preview</div>
-              <p className="mt-2 leading-relaxed opacity-85">
-                &ldquo;All merchant settlements are verified automatically and recorded in your
-                chosen workspace currency (NGN or USD) with duplicate-event protection.&rdquo;
-              </p>
-              <div className="mt-3 border-t border-current/10 pt-2 font-mono text-[11px] opacity-75">
-                Source: [Lagos_SME_Settlement_Guide.pdf]
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* SECTION 5: ACADEMY AND TEMPLATES */}
-      <section
-        id="academy"
-        className={`border-t py-16 md:py-24 ${
-          isDark ? 'border-white/10 bg-[#1B1F5E]/20' : 'border-[#0F1226]/10 bg-white/60'
-        }`}
-      >
-        <div className="mx-auto max-w-[1200px] px-4 sm:px-6">
-          <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
-            <div>
-              <div className="text-xs font-semibold opacity-70">04. AGBA Academy &amp; Templates</div>
-              <h2 className="font-display mt-2 text-2xl font-bold sm:text-[32px]">
-                Start from working agents, not blank screens.
-              </h2>
-              <p className="mt-2 max-w-2xl text-sm opacity-85">
-                Starter workflows, document Q&amp;A pipelines, and multi-agent templates compatible
-                with both hosted API keys and local Llama via Ollama.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => onEnterAcademy('All')}
-              className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#3B3FA8] hover:underline dark:text-[#D9A441]"
-            >
-              <span>Browse all {ACADEMY_TEMPLATES.length} Academy templates</span>
-              <ArrowRight className="h-3.5 w-3.5" />
-            </button>
-          </div>
-
-          <div className="mt-8 grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-            {ACADEMY_TEMPLATES.slice(0, 4).map((tpl, idx) => (
-              <div
-                key={tpl.id}
-                className={`flex flex-col justify-between rounded-xl border p-5 ${
-                  isDark ? 'border-white/10 bg-[#0E1030]' : 'border-[#0F1226]/10 bg-[#FAF6EC]'
-                }`}
-              >
-                <div>
-                  <div className="text-xs opacity-70">
-                    <span className="font-mono">0{idx + 1}</span>
-                    <span className="mx-1.5" aria-hidden="true">·</span>
-                    <span>{tpl.track}</span>
-                  </div>
-                  <h3 className="font-display mt-2 text-lg font-semibold">{tpl.title}</h3>
-                  <p className="mt-2 text-xs leading-relaxed opacity-85">{tpl.summary}</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => onOpenTemplateInStudio(tpl)}
-                  className="mt-5 inline-flex items-center gap-1.5 text-xs font-semibold text-[#3B3FA8] hover:underline dark:text-[#D9A441]"
-                >
-                  <span>Open in Studio</span>
-                  <ArrowRight className="h-3.5 w-3.5" />
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* SECTION 6: FREE STACK TEASER (Live count from real data) */}
-      <section id="free-stack" className="mx-auto max-w-[1200px] px-4 py-16 sm:px-6 md:py-24">
-        <div
-          className={`rounded-2xl border p-6 sm:p-10 ${
-            isDark ? 'border-white/15 bg-[#1B1F5E]/40' : 'border-[#0F1226]/15 bg-white'
-          }`}
-        >
-          <div className="flex flex-col justify-between gap-6 lg:flex-row lg:items-center">
-            <div className="max-w-2xl">
-              <div className="flex flex-wrap items-center gap-2 text-xs opacity-75">
-                <span>05. AGBA Free Stack Directory</span>
-                <span aria-hidden="true">·</span>
-                <span className="font-mono tabular-nums font-semibold text-[#3B3FA8] dark:text-[#D9A441]">
-                  Live Directory Count: {liveFreeStack.length} Verified Services
-                </span>
-              </div>
-              <h2 className="font-display mt-2 text-2xl font-bold sm:text-[32px]">
-                Ship with tools that cost nothing to start.
-              </h2>
-              <p className="mt-3 text-sm leading-relaxed opacity-85">
-                We independently research and verify always-free tiers across compute, vector
-                databases, authentication, CI/CD, DNS, and notifications — written in clear prose
-                with direct official pricing links and live CMS updates.
-              </p>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-3 shrink-0">
-              <button
-                type="button"
-                onClick={() => onEnterFreeStack({ category: 'All', openCms: true })}
-                className="inline-flex items-center gap-2 rounded-lg border border-current/20 px-4 py-3 text-xs font-semibold hover:bg-current/5 whitespace-nowrap"
-              >
-                <span>Manage Entries (CMS)</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => onEnterFreeStack({ category: 'All' })}
-                className="inline-flex items-center gap-2 rounded-lg bg-[#D9A441] px-6 py-3 text-sm font-semibold text-[#0F1226] hover:bg-[#c89332] whitespace-nowrap"
-              >
-                <span>Explore the Free Stack ({liveFreeStack.length})</span>
-                <ArrowRight className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-
-          {/* Preview slice of 4 live entries */}
-          <div className="mt-8 overflow-x-auto border-t border-current/10 pt-6">
-            <table className="w-full text-left text-xs">
-              <thead>
-                <tr className="border-b border-current/10 opacity-70">
-                  <th className="py-2 pr-3">Service</th>
-                  <th className="px-3 py-2">Category</th>
-                  <th className="px-3 py-2">What the free tier includes</th>
-                  <th className="py-2 pl-3 text-right">Verified</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-current/10">
-                {liveFreeStack.slice(0, 4).map((entry) => (
-                  <tr key={entry.id}>
-                    <td className="py-3 pr-3 font-semibold whitespace-nowrap">
-                      <a
-                        href={entry.officialPricingUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 hover:underline"
-                      >
-                        <span>{entry.serviceName}</span>
-                        <ExternalLink className="h-3 w-3 opacity-60" />
-                      </a>
-                    </td>
-                    <td className="px-3 py-3 whitespace-nowrap opacity-75">{entry.category}</td>
-                    <td className="px-3 py-3 opacity-90">{entry.freeTierSummary}</td>
-                    <td className="py-3 pl-3 text-right font-mono tabular-nums whitespace-nowrap opacity-75">
-                      {entry.verifiedOn}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </section>
-
-      {/* SECTION 7: PRICING */}
-      <section
-        id="pricing"
-        className={`border-t py-16 md:py-24 ${
-          isDark ? 'border-white/10 bg-[#1B1F5E]/20' : 'border-[#0F1226]/10 bg-white/60'
-        }`}
-      >
-        <div className="mx-auto max-w-[1200px] px-4 sm:px-6">
-          <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-            <div>
-              <div className="text-xs font-semibold opacity-70">06. Transparent Pricing</div>
-              <h2 className="font-display mt-2 text-2xl font-bold sm:text-[32px]">
-                Pay only for workspace scale. Bring your own model keys.
-              </h2>
-              <p className="mt-2 text-sm opacity-85">
-                Monthly plans billed in NGN or USD. Prices display{' '}
-                <span className="font-mono">[PRICE_TBD]</span> until finalized by the owner.
-              </p>
-            </div>
-
-            <div
-              className={`inline-flex rounded-lg border p-1 self-start ${
-                isDark ? 'border-white/15 bg-[#0E1030]' : 'border-[#0F1226]/15 bg-[#FAF6EC]'
-              }`}
-            >
-              {(['NGN', 'USD'] as const).map((curr) => (
-                <button
-                  key={curr}
-                  type="button"
-                  onClick={() => setPricingCurrency(curr)}
-                  className={`rounded-md px-3.5 py-1.5 font-mono text-xs font-semibold transition-colors whitespace-nowrap shrink-0 ${
-                    pricingCurrency === curr
-                      ? 'bg-[#D9A441] text-[#0F1226]'
-                      : 'opacity-75 hover:opacity-100'
-                  }`}
-                >
-                  {curr}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="mt-10 grid gap-6 lg:grid-cols-3">
-            {[
-              {
-                tier: 'Free',
-                subtitle: 'For students & individual builders getting started',
-                price: `${pricingCurrency} [PRICE_TBD] / month`,
-                features: [
-                  '1 dedicated workspace',
-                  'Bring-Your-Own-Key connections (Gemini, OpenAI, Anthropic, Mistral, Ollama)',
-                  '3 Studio workflows & 50 MB document storage',
-                  'Full AGBA Free Stack & Academy access',
-                ],
-              },
-              {
-                tier: 'Builder',
-                subtitle: 'For founders & SMEs shipping production AI workflows',
-                price: `${pricingCurrency} [PRICE_TBD] / month`,
-                features: [
-                  'Up to 5 team members with role permissions',
-                  '25 Studio apps + shareable chat pages & REST endpoints',
-                  '2 GB private vector knowledge base storage',
-                  'Automated quota & workflow-failure notifications',
-                ],
-              },
-              {
-                tier: 'Team',
-                subtitle: 'For agencies & multi-workspace engineering teams',
-                price: `${pricingCurrency} [PRICE_TBD] / month`,
-                features: [
-                  'Multi-workspace agency management & activity logs',
-                  '10 GB vector knowledge base & priority document indexing',
-                  'Custom allowlisted web tools & rate limits',
-                  'Multi-channel SMS, email, and in-app team alerts',
-                ],
-              },
-            ].map((plan, idx) => (
-              <div
-                key={plan.tier}
-                className={`flex flex-col justify-between rounded-xl border p-6 ${
-                  idx === 1
-                    ? isDark
-                      ? 'border-[#D9A441] bg-[#0E1030]'
-                      : 'border-[#3B3FA8] bg-[#FAF6EC]'
-                    : isDark
-                      ? 'border-white/10 bg-[#0E1030]'
-                      : 'border-[#0F1226]/10 bg-[#FAF6EC]'
-                }`}
-              >
-                <div>
-                  <div className="text-xs opacity-75">{plan.subtitle}</div>
-                  <h3 className="font-display mt-1 text-2xl font-bold">{plan.tier}</h3>
-                  <div className="mt-4 border-y border-current/10 py-3 font-mono text-lg font-semibold text-[#3B3FA8] dark:text-[#D9A441]">
-                    {plan.price}
-                  </div>
-                  <ul className="mt-4 space-y-2.5 text-xs leading-relaxed">
-                    {plan.features.map((f) => (
-                      <li key={f} className="flex items-start gap-2">
-                        <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#2E8B57] dark:text-[#D9A441]" />
-                        <span>{f}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={onEnterStudio}
-                  className={`mt-6 w-full rounded-lg px-4 py-2.5 text-xs font-semibold transition-colors ${
-                    idx === 1
-                      ? 'bg-[#D9A441] text-[#0F1226] hover:bg-[#c89332]'
-                      : 'border border-current/25 hover:bg-current/5'
-                  }`}
-                >
-                  Start building free
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* SECTION 8: PROOF SECTION */}
-      <section className="mx-auto max-w-[1200px] px-4 py-16 sm:px-6 md:py-24">
-        <div className="max-w-3xl">
-          <div className="text-xs font-semibold opacity-70">07. Verifiable Proof</div>
-          <h2 className="font-display mt-2 text-2xl font-bold sm:text-[32px]">
-            Real outcomes only — zero fabricated benchmarks.
-          </h2>
-          <p className="mt-2 text-sm opacity-85">
-            We publish only verified customer outcomes and real production benchmarks. Placeholders
-            remain below until verified workspace metrics are published by Trendtactics Digital.
-          </p>
-        </div>
-
-        <div className="mt-8 grid gap-6 md:grid-cols-3">
+        {/* Compact Verifiable Proof Strip (Governance Rule: Zero Fake Proof) */}
+        <div className="mt-8 grid gap-4 md:grid-cols-3">
           {[
             {
-              label: 'Time from Sign-Up to Deployed Assistant',
+              label: 'Sign-Up to Deployed Assistant',
               metric: '[PROOF: real metric needed]',
-              context: 'Target benchmark: under 15 minutes from template selection to live chat link.',
             },
             {
               label: 'SME & Student Builders Onboarded',
               metric: '[PROOF: real metric needed]',
-              context: 'Reserved for verified workspace cohort metrics from Trendtactics Digital.',
             },
             {
-              label: 'Named Customer Case Study & Outcome',
+              label: 'Named Customer Case Study',
               metric: '[PROOF: real metric needed]',
-              context: 'Reserved for attributable founder or agency story with verified results.',
             },
           ].map((item) => (
             <div
               key={item.label}
-              className={`rounded-xl border p-6 ${
-                isDark ? 'border-white/10 bg-[#1B1F5E]/30' : 'border-[#0F1226]/10 bg-white'
+              className={`flex items-center justify-between rounded-xl border px-4 py-3 text-xs ${
+                isDark ? 'border-white/10 bg-[#1B1F5E]/25' : 'border-[#0F1226]/10 bg-white'
               }`}
             >
-              <div className="text-xs font-semibold opacity-75">{item.label}</div>
-              <div className="mt-3 font-mono text-sm font-semibold text-[#3B3FA8] dark:text-[#D9A441]">
+              <span className="opacity-80">{item.label}</span>
+              <span className="font-mono font-semibold text-[#3B3FA8] dark:text-[#D9A441]">
                 {item.metric}
-              </div>
-              <p className="mt-2 text-xs leading-relaxed opacity-75">{item.context}</p>
+              </span>
             </div>
           ))}
         </div>
       </section>
 
-      {/* SECTION 9: FAQ */}
+      {/* SECTION 7: INTERACTIVE ACCORDION FAQ (Eliminates Wall of Text) */}
       <section
         id="faq"
-        className={`border-t py-16 md:py-24 ${
+        className={`border-t py-14 md:py-18 ${
           isDark ? 'border-white/10 bg-[#1B1F5E]/20' : 'border-[#0F1226]/10 bg-white/60'
         }`}
       >
-        <div className="mx-auto max-w-[1200px] px-4 sm:px-6">
-          <div className="max-w-3xl">
-            <div className="text-xs font-semibold opacity-70">08. Frequently Asked Questions</div>
-            <h2 className="font-display mt-2 text-2xl font-bold sm:text-[32px]">
-              Clear answers before you build.
-            </h2>
-          </div>
+        <div className="mx-auto max-w-[900px] px-4 sm:px-6">
+          <div className="text-xs font-semibold opacity-70">06. Quick Answers</div>
+          <h2 className="font-display mt-1 text-2xl font-bold">Frequently Asked Questions</h2>
 
-          <div className="mt-8 grid gap-6 md:grid-cols-2">
+          <div className="mt-6 space-y-2.5">
             {[
               {
                 q: 'How are my Bring-Your-Own-Key (BYOK) model API keys protected?',
-                a: 'Your keys are encrypted at rest on the server and decrypted only in memory when a workflow runs. They are never exposed in the browser and always appear masked showing only the last 4 characters.',
+                a: 'Your keys are encrypted at rest with AES-256-GCM on the server and decrypted only in memory when a workflow executes. They never leave the server and always appear masked (last 4 characters only) in the UI.',
               },
               {
                 q: 'Can another team or workspace see my uploaded documents?',
-                a: 'No. Every uploaded file and knowledge base passage belongs strictly to your workspace. Other workspaces cannot search, view, or retrieve your documents.',
+                a: 'No. Every uploaded file and vector chunk is strictly scoped to your workspace_id with PostgreSQL FORCE ROW LEVEL SECURITY and Appwrite Team RBAC.',
               },
               {
                 q: 'Can I run AGBA templates with local open-weights models like Llama?',
-                a: 'Yes. Every Academy template supports both hosted model providers (Google Gemini, OpenAI, Anthropic, Mistral) and local Ollama endpoints.',
+                a: 'Yes. Every Academy template works with both hosted providers (Gemini, OpenAI, Anthropic, Mistral) and local Ollama endpoints.',
               },
               {
-                q: 'How do I update or add services to the AGBA Free Stack?',
-                a: 'Open the Free Stack Directory and click "Manage & Add Entries (CMS)". You can add new services, edit descriptions, or refresh verification dates live without redeploying the app.',
+                q: 'How do I add or update services in the AGBA Free Stack?',
+                a: 'Open the Free Stack Directory and click "Manage & Add Entries (CMS)" to add or update verified free-tier services live without redeploying.',
               },
-            ].map((item) => (
-              <div
-                key={item.q}
-                className={`rounded-xl border p-6 ${
-                  isDark ? 'border-white/10 bg-[#0E1030]' : 'border-[#0F1226]/10 bg-[#FAF6EC]'
-                }`}
-              >
-                <h3 className="font-display text-base font-semibold">{item.q}</h3>
-                <p className="mt-2 text-xs leading-relaxed opacity-85">{item.a}</p>
-              </div>
-            ))}
-          </div>
-
-          <div className="mt-10">
-            <button
-              type="button"
-              onClick={onEnterStudio}
-              className="rounded-lg bg-[#D9A441] px-6 py-3 text-sm font-semibold text-[#0F1226] hover:bg-[#c89332]"
-            >
-              Start building free
-            </button>
+            ].map((item, idx) => {
+              const isOpen = openFaqIdx === idx;
+              return (
+                <div
+                  key={item.q}
+                  className={`rounded-xl border transition-colors ${
+                    isDark ? 'border-white/10 bg-[#0E1030]' : 'border-[#0F1226]/10 bg-[#FAF6EC]'
+                  }`}
+                >
+                  <button
+                    type="button"
+                    onClick={() => setOpenFaqIdx(isOpen ? null : idx)}
+                    aria-expanded={isOpen}
+                    className="flex w-full items-center justify-between gap-4 px-5 py-3.5 text-left text-sm font-semibold"
+                  >
+                    <span>{item.q}</span>
+                    <ChevronDown
+                      className={`h-4 w-4 shrink-0 transition-transform duration-150 ${
+                        isOpen ? 'rotate-180 text-[#D9A441]' : 'opacity-65'
+                      }`}
+                    />
+                  </button>
+                  <AnimatePresence initial={false}>
+                    {isOpen && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className="overflow-hidden"
+                      >
+                        <p className="border-t border-current/10 px-5 py-3.5 text-xs leading-relaxed opacity-85">
+                          {item.a}
+                        </p>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              );
+            })}
           </div>
         </div>
       </section>
 
-      {/* SECTION 10: FOOTER */}
+      {/* SECTION 8: FOOTER */}
       <footer
-        className={`relative overflow-hidden border-t py-14 ${
+        className={`relative overflow-hidden border-t py-12 ${
           isDark ? 'border-white/10 bg-[#0E1030]' : 'border-[#0F1226]/10 bg-[#FAF6EC]'
         }`}
       >
         <AdirePattern opacity={0.05} />
         <div className="relative mx-auto max-w-[1200px] px-4 sm:px-6">
-          <div className="flex flex-col justify-between gap-8 md:flex-row md:items-center">
+          <div className="flex flex-col justify-between gap-6 md:flex-row md:items-center">
             <div>
               <div className="inline-flex items-center gap-2.5 font-display text-xl font-bold">
                 <AgbaLogoMark size={28} />
                 <span>AGBA</span>
               </div>
-              <p className="mt-1.5 text-xs opacity-80">
+              <p className="mt-1 text-xs opacity-80">
                 Learn AI, build visual workflows with your own keys, and ship on the verified Free Stack.
               </p>
-              <p className="mt-2 text-xs font-semibold text-[#3B3FA8] dark:text-[#D9A441]">
+              <p className="mt-1.5 text-xs font-semibold text-[#3B3FA8] dark:text-[#D9A441]">
                 Built in Lagos by Trendtactics Digital
               </p>
             </div>

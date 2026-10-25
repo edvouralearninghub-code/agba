@@ -452,14 +452,14 @@ export default function App() {
         isDark ? 'bg-[#0E1030] text-[#FAF6EC]' : 'bg-[#FAF6EC] text-[#0F1226]'
       }`}
     >
-      {/* Fixed Left Sidebar: 240px expanded, 64px collapsed */}
+      {/* Fixed Left Sidebar: 216px expanded, 64px collapsed */}
       <aside
         aria-label="AGBA Application Navigation"
         className={`hidden md:flex flex-col justify-between border-r transition-all duration-150 shrink-0 ${
-          sidebarCollapsed ? 'w-[64px]' : 'w-[240px]'
+          sidebarCollapsed ? 'w-[64px]' : 'w-[216px]'
         } ${isDark ? 'border-white/10 bg-[#0E1030]' : 'border-[#0F1226]/10 bg-[#FAF6EC]'}`}
       >
-        <div className="overflow-y-auto">
+        <div className="no-scrollbar overflow-y-auto">
           <div className="flex h-14 items-center justify-between border-b border-current/10 px-4">
             {!sidebarCollapsed && (
               <button
@@ -593,16 +593,10 @@ export default function App() {
               <span
                 aria-label="Server-Verified Workspace Team Role"
                 title="Role is derived strictly on the server from your Appwrite Team + Firebase Workspace membership (never from client headers)."
-                className={`hidden sm:inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium ${
-                  isDark
-                    ? 'border-white/15 bg-[#1B1F5E]/60 text-[#FAF6EC]'
-                    : 'border-[#0F1226]/15 bg-white text-[#0F1226]'
-                }`}
+                className="hidden sm:inline-flex items-center gap-1.5 text-xs opacity-75"
               >
-                <span className="h-2 w-2 rounded-full bg-[#2E8B57]" />
-                <span>
-                  Role: {activeWorkspace.memberRole.toUpperCase()} (Server-Verified)
-                </span>
+                <span>·</span>
+                <span>Role: {activeWorkspace.memberRole.toUpperCase()}</span>
               </span>
             </div>
           </div>
@@ -626,7 +620,7 @@ export default function App() {
                 }}
                 placeholder="Jump to Free Stack, CMS, or Keys..."
                 aria-label="Global workspace search"
-                className={`w-56 rounded-lg border py-1.5 pr-3 pl-8 text-xs ${
+                className={`w-52 rounded-lg border py-1.5 pr-3 pl-8 text-xs ${
                   isDark
                     ? 'border-white/15 bg-[#1B1F5E]/40 text-[#FAF6EC]'
                     : 'border-[#0F1226]/15 bg-white text-[#0F1226]'
@@ -751,12 +745,13 @@ export default function App() {
           </nav>
         )}
 
-        <div className="flex-1 overflow-y-auto">
+        <div className="no-scrollbar flex-1 overflow-y-auto">
           {activeModule === 'studio' && (
             <StudioWorkspace
               activeWorkspace={activeWorkspace}
               workflow={currentWorkflow}
               onUpdateWorkflow={setCurrentWorkflow}
+              onSelectTemplate={handleImportTemplate}
               onOpenPublicChat={() => setViewMode('public_chat')}
               isDark={isDark}
             />
@@ -774,6 +769,42 @@ export default function App() {
               isDark={isDark}
               initialCategory={freeStackCategory}
               initialOpenCms={freeStackOpenCms}
+              onOpenStudioWithService={(serviceName, category) => {
+                const newNodeId = `node_${Date.now().toString(36)}`;
+                const lastNode = currentWorkflow.nodes[currentWorkflow.nodes.length - 1];
+                const updatedWf: StudioWorkflowApp = {
+                  ...currentWorkflow,
+                  nodes: [
+                    ...currentWorkflow.nodes,
+                    {
+                      id: newNodeId,
+                      kind: 'agent_tool',
+                      title: `${serviceName} Connector`,
+                      subtitle: `In-Platform ${category} integration`,
+                      x: lastNode ? Math.min(lastNode.x + 220, 860) : 120,
+                      y: 120,
+                      config: {
+                        toolId: 'http_request',
+                      },
+                    },
+                  ],
+                  edges: lastNode
+                    ? [
+                        ...currentWorkflow.edges,
+                        {
+                          id: `edge_${Date.now().toString(36)}`,
+                          source: lastNode.id,
+                          target: newNodeId,
+                          label: 'flow',
+                        },
+                      ]
+                    : currentWorkflow.edges,
+                  updatedAt: new Date().toISOString(),
+                };
+                setCurrentWorkflow(updatedWf);
+                setActiveModule('studio');
+                setExpandedMenu('studio');
+              }}
             />
           )}
           {activeModule === 'settings' && (
@@ -785,6 +816,10 @@ export default function App() {
                 setWorkspaces((prev) => [...prev, newWs]);
                 setActiveWorkspaceId(newWs.id);
                 void syncWorkspaceViaExpress(newWs);
+              }}
+              onNavigateModule={(mod) => {
+                setActiveModule(mod);
+                setExpandedMenu(mod);
               }}
               isDark={isDark}
             />

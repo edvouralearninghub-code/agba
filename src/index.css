@@ -22,6 +22,18 @@ body {
   line-height: 1.6;
 }
 
+/* Clean, scrollbar-free studio panes while preserving mouse-wheel & touch scroll */
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
 .font-display {
   font-family: var(--font-display);
 }
@@ -54,6 +66,15 @@ body {
   }
 }
 
+@keyframes agbaFloatSlow {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
 .agba-flow-active {
   stroke-dasharray: 6 6;
   animation: agbaFlowDash 0.85s linear infinite;
@@ -61,6 +82,10 @@ body {
 
 .agba-node-executing {
   animation: agbaSoftNodePulse 1.6s ease-out infinite;
+}
+
+.agba-float-slow {
+  animation: agbaFloatSlow 5s ease-in-out infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -72,10 +97,9 @@ body {
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
-  .agba-flow-active {
-    animation: none !important;
-  }
-  .agba-node-executing {
+  .agba-flow-active,
+  .agba-node-executing,
+  .agba-float-slow {
     animation: none !important;
   }
 }
