@@ -103,6 +103,10 @@ export default function App() {
     workspaces.find((w) => w.id === activeWorkspaceId) || workspaces[0];
 
   useEffect(() => {
+    if (typeof window !== 'undefined' && window.location.pathname === '/status') {
+      setViewMode('app');
+      setActiveModule('settings');
+    }
     const unsub = onAuthStateChanged(auth, (user) => {
       setFirebaseUser(user);
       setAuthReady(true);

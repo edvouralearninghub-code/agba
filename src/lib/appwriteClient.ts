@@ -24,12 +24,12 @@ export interface AppwriteSessionUser {
 const APPWRITE_ENDPOINT =
   (typeof import.meta !== 'undefined' &&
     (import.meta as unknown as { env?: Record<string, string> }).env?.VITE_APPWRITE_ENDPOINT) ||
-  'http://localhost:8080/v1';
+  'https://fra.cloud.appwrite.io/v1';
 
 const APPWRITE_PROJECT_ID =
   (typeof import.meta !== 'undefined' &&
     (import.meta as unknown as { env?: Record<string, string> }).env?.VITE_APPWRITE_PROJECT_ID) ||
-  'agba-core';
+  '6adc7d7a000b5b27d58d';
 
 export function getAppwriteClientConfig() {
   return {

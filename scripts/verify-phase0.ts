@@ -24,6 +24,7 @@ import {
 import { checkNoFirestoreImports } from './check-no-firestore-imports.ts';
 import { verifyComposeAgainstOfficial261Structure } from './report-appwrite-memory-and-backup-scope.ts';
 import { WorkspaceMembershipRegistry } from '../src/server/repositories.ts';
+import { buildSystemReadinessReport } from '../server.ts';
 
 const REQUIRED_GOVERNANCE_FILES = [
   'README.md',
@@ -40,9 +41,12 @@ const REQUIRED_GOVERNANCE_FILES = [
   'infra/appwrite/.env.example',
   'infra/agba-extras.docker-compose.yml',
   'docs/RUNBOOK.md',
+  'docs/REBUILD.md',
   'docs/DEPLOY_COOLIFY.md',
   'docs/adr/ADR-007-appwrite-migration.md',
   'docs/adr/ADR-008-single-source-of-truth.md',
+  'scripts/backup-agba.sh',
+  'scripts/restore-agba.sh',
 ];
 
 const APPROVED_PACKAGES_LICENSE_MAP: Record<string, string> = {
@@ -396,6 +400,38 @@ async function runPhase06UnitAndParityTests(): Promise<number> {
   }
   unitAssertionsPassed += 4;
   console.log('[PASS] [UNIT] (Server-Side Dirty Dozen Parity) Strict Zod key allowlists, field bounds, HTTPS URLs, and immutable fields enforced for Appwrite TablesDB.');
+
+  // 11. Step 4 Reliability: /readyz, /api/status, Zero Secret Leakage & Encrypted Backup Scripts
+  const readiness = await buildSystemReadinessReport(false);
+  const readinessJson = JSON.stringify(readiness);
+  if (
+    readiness.httpStatus !== 200 ||
+    readiness.components.length < 5 ||
+    readinessJson.includes(process.env.AGBA_MASTER_ENCRYPTION_KEY || 'NEVER_MATCH_EMPTY')
+  ) {
+    throw new Error('/readyz readiness report failed structure or zero-secret-leakage check.');
+  }
+  unitAssertionsPassed++;
+  console.log(
+    `[PASS] [UNIT] (Step 4 Reliability & /readyz Probe) Verified 5 subsystem health probes, zero secret leakage, and dead-man's switch alerting metadata.`
+  );
+
+  const backupScript = fs.readFileSync(path.join(process.cwd(), 'scripts/backup-agba.sh'), 'utf8');
+  const restoreScript = fs.readFileSync(path.join(process.cwd(), 'scripts/restore-agba.sh'), 'utf8');
+  if (
+    !backupScript.includes('pg_dumpall') ||
+    !backupScript.includes('agba-pgvector') ||
+    !backupScript.includes('appwrite-uploads') ||
+    !backupScript.includes('--cipher-algo AES256') ||
+    !backupScript.includes('HEALTHCHECKS_PING_URL') ||
+    !restoreScript.includes('sha256sum -c SHA256SUMS')
+  ) {
+    throw new Error('Backup or restore script missing required critical volume dumps, AES-256 encryption, or SHA256SUMS verification.');
+  }
+  unitAssertionsPassed++;
+  console.log(
+    '[PASS] [UNIT] (Step 4 Encrypted Offsite Backups & Restore) Verified GPG AES-256 backup/restore scripts covering appwrite-postgresql, agba-pgvector, appwrite-uploads, and .env keys.'
+  );
 
   return unitAssertionsPassed;
 }

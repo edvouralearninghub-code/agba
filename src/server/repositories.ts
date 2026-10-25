@@ -560,8 +560,10 @@ export class AppwriteTablesBridge {
   private readonly apiKey: string;
 
   constructor() {
-    this.endpoint = (process.env.APPWRITE_ENDPOINT || 'http://localhost:8080/v1').replace(/\/$/, '');
-    this.projectId = process.env.APPWRITE_PROJECT_ID || 'agba-core';
+    this.endpoint = (
+      process.env.APPWRITE_ENDPOINT || 'https://fra.cloud.appwrite.io/v1'
+    ).replace(/\/$/, '');
+    this.projectId = process.env.APPWRITE_PROJECT_ID || '6adc7d7a000b5b27d58d';
     this.databaseId = process.env.APPWRITE_DATABASE_ID || 'agba_core';
     this.bucketId = process.env.APPWRITE_BUCKET_ID || 'rag_files';
     this.apiKey = process.env.APPWRITE_API_KEY || '';
@@ -612,10 +614,14 @@ export class AppwriteTablesBridge {
   }
 
   public async checkReachability(): Promise<{ ok: boolean; version?: string; status: number }> {
+    if (!this.isConfigured() && this.endpoint.includes('cloud.appwrite.io')) {
+      return { ok: false, status: 401 };
+    }
     try {
       const res = await fetch(`${this.endpoint}/health/version`, {
         method: 'GET',
         headers: this.isConfigured() ? this.headers : { 'X-Appwrite-Project': this.projectId },
+        signal: AbortSignal.timeout(2500),
       });
       if (!res.ok) return { ok: false, status: res.status };
       const data = (await res.json().catch(() => ({}))) as { version?: string };
