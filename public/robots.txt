@@ -1,0 +1,34 @@
+# AGBA — Learn, Build & Ship AI (https://agba-pi.vercel.app)
+# Search Engine, Answer Engine (AEO), and Generative Engine (GEO) Crawler Policy
+
+User-agent: *
+Allow: /
+Disallow: /api/keys/
+Disallow: /api/webhooks/
+
+# Explicitly welcome AI & Answer Engine Crawlers for GEO / AEO citation indexing
+User-agent: GPTBot
+Allow: /
+
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: Applebot-Extended
+Allow: /
+
+Sitemap: https://agba-pi.vercel.app/sitemap.xml
+# LLM & Generative Engine Structured Index (llmstxt.org standard):
+# https://agba-pi.vercel.app/llms.txt
+# https://agba-pi.vercel.app/llms-full.txt

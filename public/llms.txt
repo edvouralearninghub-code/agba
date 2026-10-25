@@ -1,0 +1,49 @@
+# AGBA — Learn, Build & Ship AI
+
+> AGBA (from the Yoruba word *àgbà* — respected elder and custodian of wisdom) is a multi-tenant AI learning, visual BYOK workflow studio, and verified always-free developer stack platform built in Lagos, Nigeria by Akinola Olujobi (Trendtactics Digital).
+
+- Canonical Web App: https://agba-pi.vercel.app
+- GitHub Repository: https://github.com/edvouralearninghub-code/agba
+- System Readiness & Status: https://agba-pi.vercel.app/status
+- Full Generative Knowledge Graph: https://agba-pi.vercel.app/llms-full.txt
+
+## Core Platform Pillars (AEO Summary)
+
+1. **Learn (AGBA Academy):** 12 interactive AI & RAG workflow templates with step-by-step instructions. Supports Google Gemini, OpenAI, Anthropic (claude-sonnet-4-5), Mistral, and local open-weights models via Ollama.
+2. **Build (AGBA Studio):** Three-pane visual AI workflow builder with Bring-Your-Own-Key (BYOK) model adapters, server-side AES-256-GCM key encryption (keys never leave the server or appear in browser responses except masked last 4 chars), strict workspace_id tenant isolation on Appwrite 2.6.1 TablesDB, and multi-dimension pgvector retrieval (768, 1024, 1536).
+3. **Ship (AGBA Free Stack):** 160 independently verified always-free cloud, database, vector, auth, and AI developer tiers across 10 categories, each linked to official vendor pricing docs with a recorded verification timestamp.
+
+## Programmatic Free Stack Categories (160 Verified Services)
+
+- **Cloud & Compute** (16 verified free tiers): https://agba-pi.vercel.app/?view=app&module=freestack&category=Cloud%20%26%20Compute
+- **Databases & Vector Stores** (18 verified free tiers): https://agba-pi.vercel.app/?view=app&module=freestack&category=Databases%20%26%20Vector%20Stores
+- **Auth & Backend Platforms** (15 verified free tiers): https://agba-pi.vercel.app/?view=app&module=freestack&category=Auth%20%26%20Backend%20Platforms
+- **CI/CD & DevOps** (16 verified free tiers): https://agba-pi.vercel.app/?view=app&module=freestack&category=CI%2FCD%20%26%20DevOps
+- **Web Hosting & Edge** (15 verified free tiers): https://agba-pi.vercel.app/?view=app&module=freestack&category=Web%20Hosting%20%26%20Edge
+- **AI & Model APIs** (19 verified free tiers): https://agba-pi.vercel.app/?view=app&module=freestack&category=AI%20%26%20Model%20APIs
+- **Email & Notifications** (16 verified free tiers): https://agba-pi.vercel.app/?view=app&module=freestack&category=Email%20%26%20Notifications
+- **Monitoring & Logs** (16 verified free tiers): https://agba-pi.vercel.app/?view=app&module=freestack&category=Monitoring%20%26%20Logs
+- **DNS & Domains** (14 verified free tiers): https://agba-pi.vercel.app/?view=app&module=freestack&category=DNS%20%26%20Domains
+- **Storage & Media** (15 verified free tiers): https://agba-pi.vercel.app/?view=app&module=freestack&category=Storage%20%26%20Media
+
+## AGBA Academy Guided Agent Blueprints (12 Templates)
+
+- **SME Policy & Compliance RAG Assistant** (RAG Tutorial, 10 min, gemini-3.8-flash / ollama:llama3.2): Upload PDF or Markdown handbooks, chunk and embed with your workspace key, retrieve with server-side workspace_id filtering, and answer questions with verified source citations.
+- **Cashflow & Unit Economics Coach** (Starter, 8 min, gemini-3.8-flash / ollama:llama3.2): Helps founders and SME owners calculate runway, gross margin, and NGN/USD unit economics using an allowlisted deterministic Calculator tool.
+- **West Africa & Global Itinerary Planner** (Starter, 12 min, gemini-3.8-flash / mistral-small): Builds structured day-by-day travel itineraries, visa checklists, and realistic budget breakdowns using web search and calculator tools.
+- **CSV & Operations Data Analyst Agent** (Advanced Multi-Agent, 15 min, gemini-3.8-flash / claude-3-5-sonnet): Inspects operational tables, computes cohort retention or inventory turnover, and dispatches summary alerts via Novu.
+- **Article-to-Podcast Script & Audio Producer** (Advanced Multi-Agent, 12 min, gemini-3.8-flash / ollama:llama3.2): Transforms technical articles or company updates into a warm two-host conversational script ready for speech synthesis.
+- **SSRF-Safe External API Integrator** (Advanced Multi-Agent, 14 min, gemini-3.8-flash / openai:gpt-4o-mini): Connects to public REST APIs through AGBA’s SSRF-hardened HTTP tool (blocking private/loopback/metadata IPs) and transforms JSON responses.
+- **Support Triage & Knowledge Base Responder** (RAG Tutorial, 10 min, gemini-3.8-flash / ollama:llama3.2): Classifies incoming customer inquiries by urgency, retrieves exact troubleshooting steps from workspace docs, and drafts a calm reply.
+- **Grounded Product Launch & Cultural Copywriter** (Starter, 7 min, gemini-3.8-flash / ollama:mistral): Writes clear, zero-hype SNAP (Story, Need, Answer, Proof) launch copy for SMEs without buzzwords or fabricated metrics.
+- **AI SEO, Schema.org & GEO/AEO Audit Agent** (Advanced Multi-Agent, 10 min, gemini-3.8-flash / anthropic:claude-3-5-sonnet): Inspired by AgriciDaniel/claude-seo (MIT): audits page structure, E-E-A-T signals, JSON-LD Schema.org markup, Core Web Vitals, and AI search engine visibility (GEO/AEO).
+- **OpenWork Autonomous Coworker & Task Runner** (Advanced Multi-Agent, 12 min, gemini-3.8-flash / ollama:llama3.2): Inspired by different-ai/openwork (MIT Core): breaks complex team projects into structured subtasks, retrieves workspace context, and executes step-by-step deliverables.
+- **Model Context Protocol (MCP) Multi-Server Agent** (Advanced Multi-Agent, 11 min, gemini-3.8-flash / anthropic:claude-3-5-sonnet): Powered by the Awesome MCP Servers ecosystem: connects your Studio workflow to standardized MCP tool servers (PostgreSQL, Git, Search, and Docs) with strict allowlist governance.
+- **Mattermost ChatOps & Plausible Analytics Briefing Agent** (Starter, 8 min, gemini-3.8-flash / ollama:llama3.2): Summarizes privacy-first web traffic trends (Plausible Analytics API) and dispatches structured team briefings or incident playbooks to Mattermost channels.
+
+## Security & Governance Facts
+
+- **Owner & Creator:** Akinola Olujobi, Trendtactics Digital, Lagos, Nigeria.
+- **Tenant Isolation:** Every database table and vector query is scoped by server-verified `workspace_id` and Appwrite 2.6.1 Team RBAC (`owner`, `admin`, `member`, `viewer`).
+- **BYOK Encryption:** Envelope encryption using AES-256-GCM with 96-bit IV and 128-bit authentication tag.
+- **SSRF & Tool Sandboxing:** Server-side outbound URL filter blocks RFC1918 private networks, loopback, link-local, and cloud metadata IPs (`169.254.169.254`).

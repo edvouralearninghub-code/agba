@@ -1,0 +1,22 @@
+<svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="agbaFavBg" x1="4" y1="4" x2="44" y2="44" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#1B1F5E" />
+      <stop offset="100%" stop-color="#0E1030" />
+    </linearGradient>
+    <linearGradient id="agbaFavGold" x1="8" y1="6" x2="40" y2="42" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#F4C96B" />
+      <stop offset="50%" stop-color="#D9A441" />
+      <stop offset="100%" stop-color="#B88224" />
+    </linearGradient>
+  </defs>
+  <rect x="2.5" y="2.5" width="43" height="43" rx="11" fill="url(#agbaFavBg)" stroke="url(#agbaFavGold)" stroke-width="2" />
+  <rect x="6.5" y="6.5" width="35" height="35" rx="7.5" stroke="#D9A441" stroke-opacity="0.28" stroke-width="1" />
+  <circle cx="24" cy="11.5" r="2" fill="#F4C96B" />
+  <circle cx="15.5" cy="14" r="1.5" fill="#D9A441" />
+  <circle cx="32.5" cy="14" r="1.5" fill="#D9A441" />
+  <path d="M12 24.5L16.5 17.5L24 21.5L31.5 17.5L36 24.5" stroke="url(#agbaFavGold)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" />
+  <path d="M10.5 35.5C12.8 29.8 17.8 26.5 24 26.5C30.2 26.5 35.2 29.8 37.5 35.5" stroke="url(#agbaFavGold)" stroke-width="2.4" stroke-linecap="round" />
+  <path d="M24 21.5L27.8 26.5L24 31.5L20.2 26.5L24 21.5Z" fill="#C85A32" stroke="#F4C96B" stroke-width="1.4" />
+  <path d="M24 14.5V21.5M24 31.5V38.5" stroke="#F4C96B" stroke-width="1.8" stroke-linecap="round" />
+</svg>

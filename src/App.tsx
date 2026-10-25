@@ -19,12 +19,15 @@ import {
   LogOut,
 } from 'lucide-react';
 import { MarketingLanding } from './components/MarketingLanding.tsx';
+import { AgbaLogoMark } from './components/AgbaLogoMark.tsx';
 import { StudioWorkspace } from './components/StudioWorkspace.tsx';
 import { FreeStackView } from './components/FreeStackView.tsx';
 import { AcademyView, SettingsAndSecurityView } from './components/AcademyAndSettingsView.tsx';
 import { BillingView } from './components/BillingView.tsx';
 import { PublicChatView } from './components/PublicChatView.tsx';
 import { ACADEMY_TEMPLATES } from './data/academyTemplates.ts';
+import { FREE_STACK_CATEGORIES } from './data/freeStackData.ts';
+import { buildProgrammaticSeo, syncBrowserSeo } from './lib/seoEngine.ts';
 import {
   auth,
   bridgeFirebaseUserToAppwrite,
@@ -103,9 +106,42 @@ export default function App() {
     workspaces.find((w) => w.id === activeWorkspaceId) || workspaces[0];
 
   useEffect(() => {
-    if (typeof window !== 'undefined' && window.location.pathname === '/status') {
-      setViewMode('app');
-      setActiveModule('settings');
+    if (typeof window !== 'undefined') {
+      if (window.location.pathname === '/status') {
+        setViewMode('app');
+        setActiveModule('settings');
+      } else {
+        const params = new URLSearchParams(window.location.search);
+        const qView = params.get('view');
+        const qModule = params.get('module') as ActiveModule | null;
+        const qCategory = params.get('category') as FreeStackCategory | null;
+        const qTrack = params.get('track') as
+          | 'All'
+          | 'Starter'
+          | 'RAG Tutorial'
+          | 'Advanced Multi-Agent'
+          | null;
+
+        if (qView === 'app') {
+          setViewMode('app');
+        }
+        if (
+          qModule &&
+          ['studio', 'academy', 'freestack', 'settings', 'billing'].includes(qModule)
+        ) {
+          setActiveModule(qModule);
+          setExpandedMenu(qModule);
+        }
+        if (qCategory && (FREE_STACK_CATEGORIES as readonly string[]).includes(qCategory)) {
+          setFreeStackCategory(qCategory);
+        }
+        if (
+          qTrack &&
+          ['All', 'Starter', 'RAG Tutorial', 'Advanced Multi-Agent'].includes(qTrack)
+        ) {
+          setAcademyTrack(qTrack);
+        }
+      }
     }
     const unsub = onAuthStateChanged(auth, (user) => {
       setFirebaseUser(user);
@@ -113,6 +149,22 @@ export default function App() {
     });
     return () => unsub();
   }, []);
+
+  useEffect(() => {
+    const isStatusRoute =
+      typeof window !== 'undefined' &&
+      window.location.pathname === '/status' &&
+      viewMode === 'app' &&
+      activeModule === 'settings';
+
+    const seoMeta = buildProgrammaticSeo({
+      viewMode: isStatusRoute ? 'status' : viewMode,
+      activeModule,
+      freeStackCategory,
+      academyTrack,
+    });
+    syncBrowserSeo(seoMeta);
+  }, [viewMode, activeModule, freeStackCategory, academyTrack]);
 
   useEffect(() => {
     if (!authReady || !firebaseUser) return;
@@ -413,9 +465,10 @@ export default function App() {
               <button
                 type="button"
                 onClick={() => setViewMode('marketing')}
-                className="font-display text-lg font-bold tracking-tight hover:opacity-80"
+                className="group inline-flex items-center gap-2 font-display text-lg font-bold tracking-tight hover:opacity-90"
               >
-                AGBA
+                <AgbaLogoMark size={26} />
+                <span>AGBA</span>
               </button>
             )}
             <button

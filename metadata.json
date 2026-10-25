@@ -1,6 +1,6 @@
 {
   "name": "AGBA — Learn, Build & Ship AI",
-  "description": "Multi-tenant AI learning, visual workflow studio, and verified free developer stack platform built in Lagos by Trendtactics Digital.",
+  "description": "Learn AI with 12 guided agent blueprints, build visual BYOK workflows with private RAG citations, and ship on 160 verified free developer tiers in Lagos.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

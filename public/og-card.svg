@@ -1,0 +1,56 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="ogBg" x1="0" y1="0" x2="1200" y2="630" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#0E1030" />
+      <stop offset="60%" stop-color="#15194A" />
+      <stop offset="100%" stop-color="#0A0C24" />
+    </linearGradient>
+    <radialGradient id="ogGlow" cx="78%" cy="50%" r="42%">
+      <stop offset="0%" stop-color="#D9A441" stop-opacity="0.32" />
+      <stop offset="60%" stop-color="#3B3FA8" stop-opacity="0.16" />
+      <stop offset="100%" stop-color="#0E1030" stop-opacity="0" />
+    </radialGradient>
+    <pattern id="ogAdire" width="48" height="48" patternUnits="userSpaceOnUse">
+      <path d="M0 24H48M24 0V48M0 0L48 48M48 0L0 48" stroke="#D9A441" stroke-opacity="0.06" stroke-width="1" />
+    </pattern>
+  </defs>
+
+  <rect width="1200" height="630" fill="url(#ogBg)" />
+  <rect width="1200" height="630" fill="url(#ogAdire)" />
+  <circle cx="930" cy="315" r="260" fill="url(#ogGlow)" />
+
+  <!-- Outer Gold Frame -->
+  <rect x="32" y="32" width="1136" height="566" rx="24" stroke="#D9A441" stroke-opacity="0.35" stroke-width="2" />
+
+  <!-- Right Side Agba Medallion -->
+  <circle cx="930" cy="315" r="190" stroke="#D9A441" stroke-opacity="0.35" stroke-width="1.5" stroke-dasharray="8 10" />
+  <circle cx="930" cy="315" r="136" fill="#141848" stroke="#D9A441" stroke-width="2.5" />
+  <path d="M845 390C860 345 890 324 930 324C970 324 1000 345 1015 390" stroke="#D9A441" stroke-width="3.5" stroke-linecap="round" />
+  <path d="M895 330L930 374L965 330" stroke="#F5CC70" stroke-width="2.8" stroke-linejoin="round" />
+  <path d="M902 260L912 228L948 218L968 244L965 260H902Z" fill="#C85A32" stroke="#F5CC70" stroke-width="2.5" stroke-linejoin="round" />
+  <circle cx="930" cy="200" r="5" fill="#F5CC70" />
+  <circle cx="906" cy="206" r="3.5" fill="#D9A441" />
+  <circle cx="954" cy="206" r="3.5" fill="#D9A441" />
+
+  <!-- Brand Lockup -->
+  <rect x="84" y="88" width="54" height="54" rx="14" fill="#1B1F5E" stroke="#D9A441" stroke-width="2.5" />
+  <path d="M98 116L104 106L111 111L118 106L124 116" stroke="#F5CC70" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+  <path d="M111 111L116 118L111 125L106 118L111 111Z" fill="#C85A32" stroke="#F5CC70" stroke-width="1.5" />
+  <text x="154" y="126" fill="#FAF6EC" font-family="Georgia, serif" font-size="36" font-weight="bold">AGBA</text>
+  <text x="278" y="124" fill="#D9A441" font-family="monospace" font-size="18" font-weight="bold">LEARN · BUILD · SHIP AI</text>
+
+  <!-- Main Headline -->
+  <text x="84" y="245" fill="#FAF6EC" font-family="Georgia, serif" font-size="64" font-weight="bold">Build AI the wise way.</text>
+  <text x="84" y="312" fill="#FAF6EC" fill-opacity="0.88" font-family="sans-serif" font-size="25">
+    12 Guided Agent Blueprints · Visual BYOK Studio · 160 Verified Free Tiers
+  </text>
+  <text x="84" y="356" fill="#FAF6EC" fill-opacity="0.72" font-family="sans-serif" font-size="21">
+    AES-256-GCM Encrypted Keys · Appwrite 2.6.1 TablesDB · Multi-Dimension pgvector RAG
+  </text>
+
+  <!-- Footer Tag -->
+  <rect x="84" y="468" width="560" height="56" rx="12" fill="#D9A441" />
+  <text x="112" y="503" fill="#0F1226" font-family="sans-serif" font-size="21" font-weight="bold">
+    Built in Lagos by Trendtactics Digital · agba-pi.vercel.app
+  </text>
+</svg>

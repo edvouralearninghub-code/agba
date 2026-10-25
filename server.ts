@@ -25,8 +25,15 @@ import {
   type VerifiedCallerContext,
 } from './src/server/repositories.ts';
 import { extractTextFromUploadedBinary } from './src/server/fileParser.ts';
-import { FREE_STACK_CATEGORIES } from './src/data/freeStackData.ts';
+import { FREE_STACK_CATEGORIES, FREE_STACK_ENTRIES } from './src/data/freeStackData.ts';
 import { ACADEMY_TEMPLATES } from './src/data/academyTemplates.ts';
+import {
+  AGBA_CANONICAL_ORIGIN,
+  AGBA_DEFAULT_SEO,
+  generateLlmsFullTxt,
+  generateLlmsTxt,
+  generateSitemapXml,
+} from './src/lib/seoEngine.ts';
 import type { AllowedToolId, FreeStackCategory } from './src/types/agba.ts';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -377,6 +384,50 @@ app.get(['/readyz', '/api/health', '/api/status'], async (req, res) => {
       error: err instanceof Error ? err.message : 'Readiness check failed',
     });
   }
+});
+
+// 0B. Programmatic SEO (pSEO), Generative Engine Optimization (GEO), and Answer Engine Optimization (AEO) Endpoints
+app.get('/sitemap.xml', (req, res) => {
+  const baseUrl = process.env.APP_URL || `${req.protocol}://${req.get('host') || 'agba-pi.vercel.app'}`;
+  res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+  res.send(generateSitemapXml(baseUrl));
+});
+
+app.get('/llms.txt', (req, res) => {
+  const baseUrl = process.env.APP_URL || `${req.protocol}://${req.get('host') || 'agba-pi.vercel.app'}`;
+  res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+  res.send(generateLlmsTxt(baseUrl));
+});
+
+app.get('/llms-full.txt', (req, res) => {
+  const baseUrl = process.env.APP_URL || `${req.protocol}://${req.get('host') || 'agba-pi.vercel.app'}`;
+  res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+  res.send(generateLlmsFullTxt(baseUrl));
+});
+
+app.get('/api/seo/catalog', (_req, res) => {
+  res.json({
+    canonicalOrigin: AGBA_CANONICAL_ORIGIN,
+    defaultSeo: AGBA_DEFAULT_SEO,
+    programmaticHubs: {
+      freeStackCategories: FREE_STACK_CATEGORIES.map((category) => {
+        const count = FREE_STACK_ENTRIES.filter((e) => e.category === category).length;
+        return {
+          category,
+          count,
+          url: `${AGBA_CANONICAL_ORIGIN}/?view=app&module=freestack&category=${encodeURIComponent(category)}`,
+        };
+      }),
+      academyTracks: (['Starter', 'RAG Tutorial', 'Advanced Multi-Agent'] as const).map((track) => {
+        const count = ACADEMY_TEMPLATES.filter((t) => t.track === track).length;
+        return {
+          track,
+          count,
+          url: `${AGBA_CANONICAL_ORIGIN}/?view=app&module=academy&track=${encodeURIComponent(track)}`,
+        };
+      }),
+    },
+  });
 });
 
 // 0. Identity Bridge: Exchange Firebase ID Token for Appwrite 2.6.1 Custom Session Token (`ADR-008`)

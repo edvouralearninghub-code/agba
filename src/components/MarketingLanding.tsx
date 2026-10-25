@@ -16,6 +16,7 @@ import {
   X,
 } from 'lucide-react';
 import { AdirePattern } from './AdirePattern.tsx';
+import { AgbaLogoMark, AgbaHeroBackdrop } from './AgbaLogoMark.tsx';
 import { FREE_STACK_ENTRIES } from '../data/freeStackData.ts';
 import { ACADEMY_TEMPLATES } from '../data/academyTemplates.ts';
 import type { AcademyTemplate, FreeStackCategory, FreeStackEntry } from '../types/agba.ts';
@@ -196,12 +197,13 @@ export const MarketingLanding: React.FC<MarketingLandingProps> = ({
         }`}
       >
         <div className="mx-auto flex max-w-[1200px] items-center justify-between gap-8 px-4 py-4 sm:px-6">
-          {/* Zone 1: Brand Wordmark */}
+          {/* Zone 1: Brand Crest & Wordmark */}
           <a
             href="#top"
-            className="font-display text-xl font-bold tracking-tight whitespace-nowrap shrink-0"
+            className="group inline-flex items-center gap-2.5 font-display text-xl font-bold tracking-tight whitespace-nowrap shrink-0"
           >
-            AGBA
+            <AgbaLogoMark size={30} />
+            <span>AGBA</span>
           </a>
 
           {/* Zone 2: 5 Navigation Links with Rich Sub-Menus */}
@@ -342,17 +344,18 @@ export const MarketingLanding: React.FC<MarketingLandingProps> = ({
         )}
       </header>
 
-      {/* SECTION 1: HERO (with bespoke Adire SVG texture at 5% opacity) */}
+      {/* SECTION 1: HERO (with bespoke Adire texture + ambient Àgbà Wisdom Tapestry in background) */}
       <section
         id="top"
-        className={`relative overflow-hidden border-b py-16 md:py-24 ${
+        className={`relative overflow-hidden border-b py-20 md:py-28 ${
           isDark ? 'border-white/10 bg-[#0E1030]' : 'border-[#0F1226]/10 bg-[#FAF6EC]'
         }`}
       >
         <AdirePattern opacity={0.05} />
+        <AgbaHeroBackdrop isDark={isDark} />
 
-        <div className="relative mx-auto max-w-[1200px] px-4 sm:px-6">
-          <div className="max-w-3xl">
+        <div className="relative z-10 mx-auto max-w-[1200px] px-4 sm:px-6">
+          <div className="max-w-2xl">
             <p className="text-xs font-medium opacity-80">
               Built in Lagos by Trendtactics Digital · AI Learning, Building &amp; Shipping Platform
             </p>
@@ -362,7 +365,7 @@ export const MarketingLanding: React.FC<MarketingLandingProps> = ({
             >
               Build AI the wise way.
             </h1>
-            <p className="mt-5 max-w-2xl text-base leading-relaxed opacity-90 sm:text-lg">
+            <p className="mt-5 max-w-xl text-base leading-relaxed opacity-90 sm:text-lg">
               Every community has an <em>àgbà</em> — the elder who has seen it before and shows you
               the way. AGBA puts learning, visual building, and verified always-free deployment
               tools in one calm workspace so you can ship real AI apps with your own model keys.
@@ -1068,8 +1071,11 @@ export const MarketingLanding: React.FC<MarketingLandingProps> = ({
         <div className="relative mx-auto max-w-[1200px] px-4 sm:px-6">
           <div className="flex flex-col justify-between gap-8 md:flex-row md:items-center">
             <div>
-              <div className="font-display text-xl font-bold">AGBA</div>
-              <p className="mt-1 text-xs opacity-80">
+              <div className="inline-flex items-center gap-2.5 font-display text-xl font-bold">
+                <AgbaLogoMark size={28} />
+                <span>AGBA</span>
+              </div>
+              <p className="mt-1.5 text-xs opacity-80">
                 Learn AI, build visual workflows with your own keys, and ship on the verified Free Stack.
               </p>
               <p className="mt-2 text-xs font-semibold text-[#3B3FA8] dark:text-[#D9A441]">

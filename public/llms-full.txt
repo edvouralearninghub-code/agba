@@ -1,0 +1,233 @@
+# AGBA — Learn, Build & Ship AI
+
+> AGBA (from the Yoruba word *àgbà* — respected elder and custodian of wisdom) is a multi-tenant AI learning, visual BYOK workflow studio, and verified always-free developer stack platform built in Lagos, Nigeria by Akinola Olujobi (Trendtactics Digital).
+
+- Canonical Web App: https://agba-pi.vercel.app
+- GitHub Repository: https://github.com/edvouralearninghub-code/agba
+- System Readiness & Status: https://agba-pi.vercel.app/status
+- Full Generative Knowledge Graph: https://agba-pi.vercel.app/llms-full.txt
+
+## Core Platform Pillars (AEO Summary)
+
+1. **Learn (AGBA Academy):** 12 interactive AI & RAG workflow templates with step-by-step instructions. Supports Google Gemini, OpenAI, Anthropic (claude-sonnet-4-5), Mistral, and local open-weights models via Ollama.
+2. **Build (AGBA Studio):** Three-pane visual AI workflow builder with Bring-Your-Own-Key (BYOK) model adapters, server-side AES-256-GCM key encryption (keys never leave the server or appear in browser responses except masked last 4 chars), strict workspace_id tenant isolation on Appwrite 2.6.1 TablesDB, and multi-dimension pgvector retrieval (768, 1024, 1536).
+3. **Ship (AGBA Free Stack):** 160 independently verified always-free cloud, database, vector, auth, and AI developer tiers across 10 categories, each linked to official vendor pricing docs with a recorded verification timestamp.
+
+## Programmatic Free Stack Categories (160 Verified Services)
+
+- **Cloud & Compute** (16 verified free tiers): https://agba-pi.vercel.app/?view=app&module=freestack&category=Cloud%20%26%20Compute
+- **Databases & Vector Stores** (18 verified free tiers): https://agba-pi.vercel.app/?view=app&module=freestack&category=Databases%20%26%20Vector%20Stores
+- **Auth & Backend Platforms** (15 verified free tiers): https://agba-pi.vercel.app/?view=app&module=freestack&category=Auth%20%26%20Backend%20Platforms
+- **CI/CD & DevOps** (16 verified free tiers): https://agba-pi.vercel.app/?view=app&module=freestack&category=CI%2FCD%20%26%20DevOps
+- **Web Hosting & Edge** (15 verified free tiers): https://agba-pi.vercel.app/?view=app&module=freestack&category=Web%20Hosting%20%26%20Edge
+- **AI & Model APIs** (19 verified free tiers): https://agba-pi.vercel.app/?view=app&module=freestack&category=AI%20%26%20Model%20APIs
+- **Email & Notifications** (16 verified free tiers): https://agba-pi.vercel.app/?view=app&module=freestack&category=Email%20%26%20Notifications
+- **Monitoring & Logs** (16 verified free tiers): https://agba-pi.vercel.app/?view=app&module=freestack&category=Monitoring%20%26%20Logs
+- **DNS & Domains** (14 verified free tiers): https://agba-pi.vercel.app/?view=app&module=freestack&category=DNS%20%26%20Domains
+- **Storage & Media** (15 verified free tiers): https://agba-pi.vercel.app/?view=app&module=freestack&category=Storage%20%26%20Media
+
+## AGBA Academy Guided Agent Blueprints (12 Templates)
+
+- **SME Policy & Compliance RAG Assistant** (RAG Tutorial, 10 min, gemini-3.8-flash / ollama:llama3.2): Upload PDF or Markdown handbooks, chunk and embed with your workspace key, retrieve with server-side workspace_id filtering, and answer questions with verified source citations.
+- **Cashflow & Unit Economics Coach** (Starter, 8 min, gemini-3.8-flash / ollama:llama3.2): Helps founders and SME owners calculate runway, gross margin, and NGN/USD unit economics using an allowlisted deterministic Calculator tool.
+- **West Africa & Global Itinerary Planner** (Starter, 12 min, gemini-3.8-flash / mistral-small): Builds structured day-by-day travel itineraries, visa checklists, and realistic budget breakdowns using web search and calculator tools.
+- **CSV & Operations Data Analyst Agent** (Advanced Multi-Agent, 15 min, gemini-3.8-flash / claude-3-5-sonnet): Inspects operational tables, computes cohort retention or inventory turnover, and dispatches summary alerts via Novu.
+- **Article-to-Podcast Script & Audio Producer** (Advanced Multi-Agent, 12 min, gemini-3.8-flash / ollama:llama3.2): Transforms technical articles or company updates into a warm two-host conversational script ready for speech synthesis.
+- **SSRF-Safe External API Integrator** (Advanced Multi-Agent, 14 min, gemini-3.8-flash / openai:gpt-4o-mini): Connects to public REST APIs through AGBA’s SSRF-hardened HTTP tool (blocking private/loopback/metadata IPs) and transforms JSON responses.
+- **Support Triage & Knowledge Base Responder** (RAG Tutorial, 10 min, gemini-3.8-flash / ollama:llama3.2): Classifies incoming customer inquiries by urgency, retrieves exact troubleshooting steps from workspace docs, and drafts a calm reply.
+- **Grounded Product Launch & Cultural Copywriter** (Starter, 7 min, gemini-3.8-flash / ollama:mistral): Writes clear, zero-hype SNAP (Story, Need, Answer, Proof) launch copy for SMEs without buzzwords or fabricated metrics.
+- **AI SEO, Schema.org & GEO/AEO Audit Agent** (Advanced Multi-Agent, 10 min, gemini-3.8-flash / anthropic:claude-3-5-sonnet): Inspired by AgriciDaniel/claude-seo (MIT): audits page structure, E-E-A-T signals, JSON-LD Schema.org markup, Core Web Vitals, and AI search engine visibility (GEO/AEO).
+- **OpenWork Autonomous Coworker & Task Runner** (Advanced Multi-Agent, 12 min, gemini-3.8-flash / ollama:llama3.2): Inspired by different-ai/openwork (MIT Core): breaks complex team projects into structured subtasks, retrieves workspace context, and executes step-by-step deliverables.
+- **Model Context Protocol (MCP) Multi-Server Agent** (Advanced Multi-Agent, 11 min, gemini-3.8-flash / anthropic:claude-3-5-sonnet): Powered by the Awesome MCP Servers ecosystem: connects your Studio workflow to standardized MCP tool servers (PostgreSQL, Git, Search, and Docs) with strict allowlist governance.
+- **Mattermost ChatOps & Plausible Analytics Briefing Agent** (Starter, 8 min, gemini-3.8-flash / ollama:llama3.2): Summarizes privacy-first web traffic trends (Plausible Analytics API) and dispatches structured team briefings or incident playbooks to Mattermost channels.
+
+## Security & Governance Facts
+
+- **Owner & Creator:** Akinola Olujobi, Trendtactics Digital, Lagos, Nigeria.
+- **Tenant Isolation:** Every database table and vector query is scoped by server-verified `workspace_id` and Appwrite 2.6.1 Team RBAC (`owner`, `admin`, `member`, `viewer`).
+- **BYOK Encryption:** Envelope encryption using AES-256-GCM with 96-bit IV and 128-bit authentication tag.
+- **SSRF & Tool Sandboxing:** Server-side outbound URL filter blocks RFC1918 private networks, loopback, link-local, and cloud metadata IPs (`169.254.169.254`).
+
+---
+
+## Complete AGBA Free Stack Directory (160 Verified Entries)
+
+### Cloud & Compute (16 entries)
+  - **Google Cloud Run** (https://cloud.google.com/run/pricing) — 2 million HTTP requests/month, 360,000 GB-seconds memory, and 180,000 vCPU-seconds compute time every month at zero cost. | Verified: 2026-10-23
+  - **Oracle Cloud Always Free ARM (Ampere A1)** (https://www.oracle.com/cloud/free/) — Up to 4 Ampere A1 ARM cores and 24 GB RAM across Always Free VM instances, plus 200 GB block storage and 10 TB/month outbound transfer. | Verified: 2026-10-23
+  - **AWS Lambda** (https://aws.amazon.com/lambda/pricing/) — 1 million serverless invocations and 400,000 GB-seconds of compute per month on the perpetual free tier for x86 and Graviton2 functions. | Verified: 2026-10-23
+  - **Cloudflare Workers** (https://developers.cloudflare.com/workers/platform/pricing/) — 100,000 global edge requests per day with up to 10ms CPU execution time per invocation and zero cold starts. | Verified: 2026-10-23
+  - **Google Compute Engine (e2-micro)** (https://cloud.google.com/free/docs/free-cloud-features) — 1 non-preemptible e2-micro VM instance per month in qualifying US regions, including 30 GB standard persistent disk. | Verified: 2026-10-23
+  - **Azure Functions Consumption Plan** (https://azure.microsoft.com/en-us/pricing/details/functions/) — 1 million executions and 400,000 GB-seconds of resource consumption per month across event-driven serverless functions. | Verified: 2026-10-23
+  - **Azure Container Apps** (https://azure.microsoft.com/en-us/pricing/details/container-apps/) — 180,000 vCPU-seconds, 360,000 GiB-seconds, and 2 million requests free each month for containerized microservices. | Verified: 2026-10-23
+  - **Deno Deploy** (https://deno.com/deploy/pricing) — 1 million edge requests per month and 100 GB outbound data transfer for TypeScript and JavaScript isolates. | Verified: 2026-10-23
+  - **Render Free Web Services** (https://render.com/pricing) — 750 free instance hours per month for Docker, Node.js, Python, or Go web services that spin down on idle. | Verified: 2026-10-23
+  - **Koyeb Serverless Free Tier** (https://www.koyeb.com/pricing) — 1 free web service instance with scale-to-zero support, automatic HTTPS, and continuous Git deployment. | Verified: 2026-10-23
+  - **IBM Cloud Code Engine** (https://www.ibm.com/cloud/code-engine/pricing) — 100,000 vCPU-seconds and 200,000 GB-seconds per month free for running container jobs and serverless apps. | Verified: 2026-10-23
+  - **AWS Step Functions** (https://aws.amazon.com/step-functions/pricing/) — 4,000 free state transitions per month forever for orchestrating multi-step serverless workflows. | Verified: 2026-10-23
+  - **Google Cloud Workflows** (https://cloud.google.com/workflows/pricing) — 5,000 free internal step executions and 2,000 free external HTTP call steps every month. | Verified: 2026-10-23
+  - **Modal Serverless Compute** (https://modal.com/pricing) — $30/month in free serverless CPU and GPU compute credits for Python AI tasks, cron jobs, and inference endpoints. | Verified: 2026-10-23
+  - **Trigger.dev Cloud Free** (https://trigger.dev/pricing) — Background jobs and long-running AI agent tasks with no timeouts and a monthly free invocation allowance. | Verified: 2026-10-23
+  - **Inngest Free Tier** (https://www.inngest.com/pricing) — 50,000 serverless function step runs per month for durable queues, retries, and AI agent orchestration. | Verified: 2026-10-23
+
+### Databases & Vector Stores (18 entries)
+  - **Neon Serverless Postgres (pgvector)** (https://neon.tech/pricing) — 0.5 GB Postgres and pgvector storage, 191.9 compute hours/month with scale-to-zero, and instant database branching. | Verified: 2026-10-23
+  - **Qdrant Cloud Free Tier** (https://qdrant.tech/pricing/) — 1 GB managed vector database cluster forever free with HNSW indexing and metadata payload filtering. | Verified: 2026-10-23
+  - **Upstash Redis & Vector** (https://upstash.com/pricing) — 10,000 Redis commands per day and 256 MB storage plus serverless vector index queries for RAG and rate limiting. | Verified: 2026-10-23
+  - **MongoDB Atlas M0** (https://www.mongodb.com/pricing) — 512 MB shared document cluster with Atlas Vector Search and full-text search indexes. | Verified: 2026-10-23
+  - **Turso (libSQL)** (https://turso.tech/pricing) — 9 GB storage across up to 500 databases and 500 million rows read per month with native float32 vector columns. | Verified: 2026-10-23
+  - **Pinecone Starter Plan** (https://www.pinecone.io/pricing/) — 2 GB vector storage (roughly 300k–500k embeddings) with namespaces and metadata filtering at no cost. | Verified: 2026-10-23
+  - **Zilliz Cloud (Managed Milvus) Free** (https://zilliz.com/pricing) — 2 serverless vector collections up to 5 GB free storage for high-dimensional similarity search. | Verified: 2026-10-23
+  - **CockroachDB Serverless Basic** (https://www.cockroachlabs.com/pricing/) — 10 GiB distributed SQL storage and 50 million Request Units per month at zero cost. | Verified: 2026-10-23
+  - **TiDB Cloud Serverless** (https://www.pingcap.com/tidb-cloud-pricing/) — 25 GiB row + columnar storage and 50 million Request Units per month with built-in MySQL-compatible vector search. | Verified: 2026-10-23
+  - **Cloudflare D1 Serverless SQL** (https://developers.cloudflare.com/d1/platform/pricing/) — 5 million rows read per day, 100,000 rows written per day, and 5 GB total SQLite storage across databases. | Verified: 2026-10-23
+  - **Cloudflare Workers KV** (https://developers.cloudflare.com/kv/platform/pricing/) — 100,000 read operations per day, 1,000 write/delete/list operations per day, and 1 GB edge key-value storage. | Verified: 2026-10-23
+  - **AWS DynamoDB Free Tier** (https://aws.amazon.com/dynamodb/pricing/) — 25 GB NoSQL storage, 25 provisioned Write Capacity Units, and 25 Read Capacity Units (up to 200M requests/month). | Verified: 2026-10-23
+  - **Google Cloud Firestore** (https://cloud.google.com/firestore/pricing) — 1 GiB document storage, 50,000 reads/day, 20,000 writes/day, and 20,000 deletes/day on the perpetual free tier. | Verified: 2026-10-23
+  - **Google BigQuery Sandbox** (https://cloud.google.com/bigquery/pricing) — 10 GB active analytical table storage and 1 TB of SQL query processing per month at no charge. | Verified: 2026-10-23
+  - **Neo4j AuraDB Free** (https://neo4j.com/pricing/) — Managed graph database supporting up to 200,000 nodes and 400,000 relationships for GraphRAG prototypes. | Verified: 2026-10-23
+  - **Chroma (Open-Source Vector DB)** (https://www.trychroma.com/) — Apache-2.0 embeddable and client-server vector database for Python and TypeScript RAG workflows. | Verified: 2026-10-23
+  - **Weaviate Open Source & Sandbox** (https://weaviate.io/pricing) — BSD-3-Clause hybrid vector + BM25 search engine for self-hosting plus 14-day cloud trial sandboxes. | Verified: 2026-10-23
+  - **Aiven Free Tier (MySQL / Valkey / Pg)** (https://aiven.io/pricing) — 1 free managed 1 CPU / 1 GB RAM instance for PostgreSQL, MySQL, or Valkey (Redis fork). | Verified: 2026-10-23
+
+### Auth & Backend Platforms (15 entries)
+  - **Appwrite (Self-Hosted & Cloud Free)** (https://appwrite.io/pricing) — BSD-3-Clause backend (Auth, Teams, TablesDB, Storage, Functions); Cloud Free includes 75K MAU, 500K reads, 250K writes, 2 GB storage, 5 GB bandwidth, 750K executions (100 GB-hrs), or uncapped when self-hosted via Docker. | Verified: 2026-10-23
+  - **Firebase Authentication** (https://firebase.google.com/pricing) — 50,000 monthly active users for email/password, magic link, anonymous, and social OAuth sign-ins on the Spark plan. | Verified: 2026-10-23
+  - **Keycloak (Self-Hosted OSS)** (https://www.keycloak.org/) — Apache-2.0 identity and access management server with OpenID Connect, SAML 2.0, MFA, and fine-grained RBAC. | Verified: 2026-10-23
+  - **Clerk Free Tier** (https://clerk.com/pricing) — 10,000 monthly active users with pre-built React auth components, MFA, and up to 5 members per organization. | Verified: 2026-10-23
+  - **Auth0 Free Plan** (https://auth0.com/pricing) — 25,000 monthly active users with social OAuth providers, universal login pages, and custom actions. | Verified: 2026-10-23
+  - **Kinde Free Tier** (https://kinde.com/pricing/) — 10,500 monthly active users with B2B organization switching, feature flags, and role permissions. | Verified: 2026-10-23
+  - **WorkOS User Management** (https://workos.com/pricing) — Free up to 1,000,000 monthly active users for core email, OAuth, and magic-link authentication via AuthKit. | Verified: 2026-10-23
+  - **AWS Cognito User Pools** (https://aws.amazon.com/cognito/pricing/) — 10,000 monthly active users free forever on the Lite tier for OIDC/OAuth2 consumer authentication. | Verified: 2026-10-23
+  - **Supabase Free Plan** (https://supabase.com/pricing) — 50,000 monthly active users, 500 MB Postgres database with pgvector, and 1 GB file storage for 2 active projects. | Verified: 2026-10-23
+  - **PocketBase (Open Source)** (https://pocketbase.io/) — MIT-licensed single-binary Go backend with embedded SQLite, real-time subscriptions, user auth, and file storage. | Verified: 2026-10-23
+  - **Better Auth (Open Source TypeScript)** (https://www.better-auth.com/) — MIT-licensed TypeScript authentication framework supporting multi-tenant organizations, 2FA, passkeys, and OAuth. | Verified: 2026-10-23
+  - **SuperTokens Open Source & Cloud Free** (https://supertokens.com/pricing) — Apache-2.0 self-hosted session and login management plus 5,000 free MAU on managed cloud. | Verified: 2026-10-23
+  - **Logto Open Source & Cloud Free** (https://logto.io/pricing) — MPL-2.0 OIDC identity provider with RBAC and multi-tenancy; 50,000 MAU on Cloud Free tier. | Verified: 2026-10-23
+  - **Convex Free Plan** (https://www.convex.dev/pricing) — 1 million function calls/month, 1 GB reactive database storage, and real-time sync for full-stack TypeScript apps. | Verified: 2026-10-23
+  - **Ory Network Developer** (https://www.ory.sh/pricing/) — Open-source Kratos/Hydra identity stack plus a developer cloud tier for OAuth2 and zero-trust permissions. | Verified: 2026-10-23
+
+### CI/CD & DevOps (16 entries)
+  - **GitHub Actions** (https://docs.github.com/en/billing/managing-billing-for-github-actions/about-billing-for-github-actions) — Unlimited CI/CD minutes for public repositories and 2,000 Linux runner minutes/month for private repositories. | Verified: 2026-10-23
+  - **GitLab CI/CD Free Tier** (https://about.gitlab.com/pricing/) — 400 compute minutes per month on shared runners, container registry, and 5 GB repository storage. | Verified: 2026-10-23
+  - **Google OSV-Scanner** (https://google.github.io/osv-scanner/) — Apache-2.0 lockfile vulnerability scanner matching package dependencies against the Open Source Vulnerability database. | Verified: 2026-10-23
+  - **CircleCI Free Plan** (https://circleci.com/pricing/) — 6,000 build minutes per month (30,000 credits) across Linux, Docker, macOS, and Windows pipelines. | Verified: 2026-10-23
+  - **Bitbucket Pipelines Free** (https://www.atlassian.com/software/bitbucket/pricing) — 50 build minutes per month and 1 GB Git LFS storage for small teams up to 5 users. | Verified: 2026-10-23
+  - **Google Cloud Build** (https://cloud.google.com/build/pricing) — 120 free build-minutes per day on standard e2-medium build workers for container and CI jobs. | Verified: 2026-10-23
+  - **AWS CodeBuild** (https://aws.amazon.com/codebuild/pricing/) — 100 free build minutes per month on general1.small or arm1.small compute instances. | Verified: 2026-10-23
+  - **Azure DevOps Pipelines** (https://azure.microsoft.com/en-us/pricing/details/devops/azure-devops-services/) — 1 free Microsoft-hosted CI/CD job with 1,800 minutes/month for private repos, and 10 parallel jobs for open source. | Verified: 2026-10-23
+  - **Snyk Free Developer Tier** (https://snyk.io/plans/) — 200 open-source dependency tests and 100 container vulnerability scans per month with PR checks. | Verified: 2026-10-23
+  - **SonarCloud Free for Open Source & Small Private** (https://www.sonarsource.com/plans-and-pricing/sonarcloud/) — Static code security analysis, secret detection, and code smell gates free for public repos and up to 50k private LOC. | Verified: 2026-10-23
+  - **Trivy (Aqua Security OSS)** (https://trivy.dev/) — Apache-2.0 vulnerability, misconfiguration, SBOM, and secret scanner for Docker images and filesystems. | Verified: 2026-10-23
+  - **Gitleaks (Secret Scanner)** (https://gitleaks.io/) — MIT-licensed fast Git pre-commit and CI scanner that blocks accidental commits of API keys and tokens. | Verified: 2026-10-23
+  - **Docker Hub Personal** (https://www.docker.com/pricing/) — Unlimited public container repositories and 1 free private container image repository. | Verified: 2026-10-23
+  - **GitHub Container Registry (GHCR)** (https://docs.github.com/en/billing/managing-billing-for-github-packages/about-billing-for-github-packages) — Free public OCI/Docker image hosting and 500 MB private package storage with 1 GB/month transfer. | Verified: 2026-10-23
+  - **Pulumi Individual Tier** (https://www.pulumi.com/pricing/) — Unlimited infrastructure-as-code deployments and up to 500 managed cloud resources in state storage for solo builders. | Verified: 2026-10-23
+  - **HCP Terraform Free** (https://www.hashicorp.com/products/terraform/pricing) — Remote Terraform state storage, state locking, and VCS-driven runs free for up to 500 managed resources. | Verified: 2026-10-23
+
+### Web Hosting & Edge (15 entries)
+  - **Vercel Hobby** (https://vercel.com/pricing) — 100 GB fast edge bandwidth/month, automatic SSL, Git branch preview URLs, and serverless functions. | Verified: 2026-10-23
+  - **Cloudflare Pages** (https://pages.cloudflare.com/) — Unlimited static bandwidth, 500 builds/month, custom domains with TLS, and integrated Workers edge routes. | Verified: 2026-10-23
+  - **Netlify Starter** (https://www.netlify.com/pricing/) — 100 GB monthly bandwidth and 300 build minutes/month with atomic deploys and instant rollbacks. | Verified: 2026-10-23
+  - **GitHub Pages** (https://pages.github.com/) — 100 GB/month soft bandwidth limit, 1 GB site storage, and free custom domain HTTPS directly from GitHub repos. | Verified: 2026-10-23
+  - **GitLab Pages** (https://docs.gitlab.com/ee/user/project/pages/) — Static website hosting built from GitLab CI/CD pipelines with Let’s Encrypt TLS and custom domains. | Verified: 2026-10-23
+  - **Firebase Hosting** (https://firebase.google.com/pricing) — 10 GB SSD asset storage and 360 MB/day (~10.8 GB/month) global CDN transfer with automatic SSL. | Verified: 2026-10-23
+  - **Azure Static Web Apps Free** (https://azure.microsoft.com/en-us/pricing/details/app-service/static/) — 100 GB bandwidth per subscription, 2 custom domains with free SSL, and integrated Azure Functions API routes. | Verified: 2026-10-23
+  - **DigitalOcean App Platform Starter** (https://www.digitalocean.com/pricing/app-platform) — Build and deploy up to 3 static websites from GitHub/GitLab with global CDN delivery at zero cost. | Verified: 2026-10-23
+  - **Render Static Sites** (https://render.com/pricing) — 100 GB free egress bandwidth per month, automatic Brotli compression, and pull-request previews. | Verified: 2026-10-23
+  - **Surge.sh** (https://surge.sh/price) — Single-command CLI static web publishing (`surge ./dist`) with custom domain support and clean URLs. | Verified: 2026-10-23
+  - **AWS CloudFront Free Tier** (https://aws.amazon.com/cloudfront/pricing/) — 1 TB of outbound CDN data transfer and 10,000,000 HTTP/HTTPS requests per month on the perpetual free tier. | Verified: 2026-10-23
+  - **Fastly Developer Free Tier** (https://www.fastly.com/pricing) — Up to $50/month worth of global CDN traffic and Compute@Edge requests at no cost for developers. | Verified: 2026-10-23
+  - **Coolify (Self-Hosted OSS PaaS)** (https://coolify.io/pricing) — Apache-2.0 self-hosted alternative to Heroku/Vercel that turns any single VPS into a multi-app PaaS. | Verified: 2026-10-23
+  - **Dokku (Self-Hosted Mini-Heroku)** (https://dokku.com/) — MIT-licensed Docker-powered PaaS enabling `git push` deployments and Let’s Encrypt SSL on your own server. | Verified: 2026-10-23
+  - **Caddy Web Server (Open Source)** (https://caddyserver.com/) — Apache-2.0 reverse proxy and web server with automatic HTTPS provisioning via Let’s Encrypt and ZeroSSL. | Verified: 2026-10-23
+
+### AI & Model APIs (19 entries)
+  - **Google AI Studio (Gemini API Free Tier)** (https://ai.google.dev/pricing) — Free rate-limited access to Gemini Flash, Gemini Flash Lite, and Gemini Embedding models for RAG and agent prototyping. | Verified: 2026-10-23
+  - **Ollama (Local Open-Weights Runtime)** (https://ollama.com/) — MIT-licensed local inference server for running Llama, Mistral, Gemma, and Qwen with an OpenAI-compatible API. | Verified: 2026-10-23
+  - **Hugging Face Spaces (CPU Basic)** (https://huggingface.co/pricing) — 2 vCPU and 16 GB RAM free community hosting for Gradio/Streamlit/Docker AI apps plus free model repo hosting. | Verified: 2026-10-23
+  - **Flowise Core (Open Source)** (https://github.com/FlowiseAI/Flowise) — Apache-2.0 visual LLM orchestration and node execution engine (used as AGBA’s core engine reference, excluding enterprise). | Verified: 2026-10-23
+  - **GroqCloud Developer Free Tier** (https://groq.com/pricing/) — Rate-limited free API access to low-latency Llama 3 and Whisper models for rapid agent prototyping. | Verified: 2026-10-23
+  - **Mistral AI La Plateforme Experiment Tier** (https://mistral.ai/technology/#pricing) — Free rate-limited API access to Mistral Small, Pixtral, and Codestral models for development and testing. | Verified: 2026-10-23
+  - **Cohere Trial API Key** (https://cohere.com/pricing) — 1,000 free API calls per month across Command, Embed, and Rerank endpoints for non-production RAG evaluation. | Verified: 2026-10-23
+  - **Cloudflare Workers AI** (https://developers.cloudflare.com/workers-ai/platform/pricing/) — 10,000 free Neurons per day to run open-weights text generation, embedding, and translation models at the edge. | Verified: 2026-10-23
+  - **OpenRouter Free Models Route** (https://openrouter.ai/docs/limits) — Unified OpenAI-compatible router offering rate-limited `:free` community model endpoints for testing multi-provider agents. | Verified: 2026-10-23
+  - **Jina AI Reader & Embeddings Free Tier** (https://jina.ai/reader/) — Free URL-to-LLM-friendly markdown reader (`r.jina.ai`) and 1 million free embedding tokens for new keys. | Verified: 2026-10-23
+  - **Tavily AI Search Developer Plan** (https://tavily.com/#pricing) — 1,000 free web search API credits per month tailored specifically for RAG and tool-using AI agents. | Verified: 2026-10-23
+  - **Langfuse (Open Source & Cloud Hobby)** (https://langfuse.com/pricing) — MIT-licensed LLM trace observability and prompt management; 50,000 observations/month free on Cloud Hobby. | Verified: 2026-10-23
+  - **Arize Phoenix (Open Source)** (https://phoenix.arize.com/) — Open-source OpenTelemetry-based LLM tracing, RAG evaluation, and hallucination inspection toolkit. | Verified: 2026-10-23
+  - **vLLM (Open-Source Inference Engine)** (https://docs.vllm.ai/) — Apache-2.0 high-throughput PagedAttention inference server for self-hosting open-weights LLMs. | Verified: 2026-10-23
+  - **llama.cpp (Open Source)** (https://github.com/ggerganov/llama.cpp) — MIT-licensed C/C++ quantized inference engine for running GGUF models on CPUs, Apple Silicon, and GPUs. | Verified: 2026-10-23
+  - **Whisper.cpp (Open-Source Speech-to-Text)** (https://github.com/ggerganov/whisper.cpp) — MIT-licensed lightweight local audio transcription engine with zero cloud API fees. | Verified: 2026-10-23
+  - **Claude SEO Suite (AgriciDaniel/claude-seo)** (https://github.com/AgriciDaniel/claude-seo) — 100% free MIT-licensed open-source SEO audit & orchestration suite with specialist sub-agents and client-ready report generation. | Verified: 2026-10-23
+  - **OpenWork Community Core (different-ai/openwork)** (https://github.com/different-ai/openwork) — MIT-licensed core platform and desktop coworker app (outside ee/); Den control plane is free for teams up to 5 users. | Verified: 2026-10-23
+  - **Awesome MCP Servers (Model Context Protocol Ecosystem)** (https://github.com/punkpeye/awesome-mcp-servers) — MIT-licensed directory of hundreds of free, open-source MCP server connectors for standardized AI tool calling. | Verified: 2026-10-23
+
+### Email & Notifications (16 entries)
+  - **Novu (Open-Source & Cloud Free Tier)** (https://novu.co/pricing) — MIT-licensed notification workflow infrastructure for in-app, email, and SMS; 10,000 events/month on Cloud Free. | Verified: 2026-10-23
+  - **Resend Free Tier** (https://resend.com/pricing) — 3,000 transactional emails per month (100/day) with React Email support and webhook delivery logs. | Verified: 2026-10-23
+  - **Postmark Developer Tier** (https://postmarkapp.com/pricing) — 100 transactional emails per month forever free for testing receipts, alerts, and inbound webhook parsing. | Verified: 2026-10-23
+  - **Brevo (formerly Sendinblue) Free** (https://www.brevo.com/pricing/) — 300 transactional or marketing emails per day (up to 9,000/month) via REST API and SMTP relay. | Verified: 2026-10-23
+  - **MailerSend Free Plan** (https://www.mailersend.com/pricing) — 3,000 transactional emails per month with inbound routing, suppression management, and analytics. | Verified: 2026-10-23
+  - **Mailtrap Email Sending Free** (https://mailtrap.io/pricing/) — 1,000 transactional emails per month (up to 150/day) plus sandbox SMTP inbox testing for staging. | Verified: 2026-10-23
+  - **SMTP2GO Free Plan** (https://www.smtp2go.com/pricing/) — 1,000 emails per month (up to 200/day) with 5 days of delivery reporting. | Verified: 2026-10-23
+  - **AWS Simple Notification Service (SNS)** (https://aws.amazon.com/sns/pricing/) — 1 million pub/sub requests, 100,000 HTTP webhook deliveries, and 1,000 email notifications per month free. | Verified: 2026-10-23
+  - **Firebase Cloud Messaging (FCM)** (https://firebase.google.com/docs/cloud-messaging) — Unlimited cross-platform web, Android, and iOS push notifications at zero cost. | Verified: 2026-10-23
+  - **OneSignal Growth Free Plan** (https://onesignal.com/pricing) — Unlimited mobile push notifications, web push up to 10,000 subscribers per message, and 10,000 emails/month. | Verified: 2026-10-23
+  - **ntfy.sh (Open-Source Pub/Sub Notifications)** (https://ntfy.sh/) — Apache-2.0/GPLv2 HTTP-based pub/sub tool for sending instant phone/desktop alerts from scripts via simple PUT/POST. | Verified: 2026-10-23
+  - **Listmonk (Self-Hosted OSS Newsletter & Transactional)** (https://listmonk.app/) — AGPLv3 single-binary Go newsletter and transactional email manager backed by PostgreSQL. | Verified: 2026-10-23
+  - **Postal (Open-Source Mail Delivery Platform)** (https://docs.postalserver.io/) — MIT-licensed full-featured mail server with webhooks, DKIM/SPF management, and HTTP sending API. | Verified: 2026-10-23
+  - **Knock Developer Plan** (https://knock.app/pricing) — 10,000 notification messages per month across in-app feeds, email, Slack, and push channels. | Verified: 2026-10-23
+  - **Pusher Channels Sandbox** (https://pusher.com/channels/pricing/) — 200,000 real-time WebSocket messages per day and up to 100 concurrent connections free. | Verified: 2026-10-23
+  - **Mattermost Team Edition (Self-Hosted OSS)** (https://github.com/mattermost/mattermost) — Free self-hosted Team Edition (Apache-2.0 core) with unlimited channels, incoming/outgoing webhooks, and AI bot integrations. | Verified: 2026-10-23
+
+### Monitoring & Logs (16 entries)
+  - **Sentry Developer** (https://sentry.io/pricing/) — 5,000 error events, 10,000 performance transactions, and 50 session replays per month for 1 user. | Verified: 2026-10-23
+  - **Grafana Cloud Free** (https://grafana.com/pricing/) — 10,000 Prometheus metrics series, 50 GB Loki logs, and 50 GB Tempo traces per month with 14-day retention. | Verified: 2026-10-23
+  - **Better Stack Telemetry & Uptime Free** (https://betterstack.com/pricing) — 10 uptime monitors with 3-minute checks, status page hosting, and 3 GB log ingestion per month. | Verified: 2026-10-23
+  - **New Relic Free Tier** (https://newrelic.com/pricing) — 100 GB per month of telemetry data ingest (APM, logs, infrastructure, traces) and 1 full platform user free. | Verified: 2026-10-23
+  - **Honeycomb Free Plan** (https://www.honeycomb.io/pricing) — 20 million OpenTelemetry trace events per month with high-cardinality query exploration. | Verified: 2026-10-23
+  - **Axiom Free Tier** (https://axiom.co/pricing) — 500 GB per month of structured log and trace ingestion with 30-day retention for serverless and Vercel apps. | Verified: 2026-10-23
+  - **PostHog Free Allowance** (https://posthog.com/pricing) — 1 million product analytics events, 5,000 session recordings, and 1 million feature flag requests free every month. | Verified: 2026-10-23
+  - **UptimeRobot Free Plan** (https://uptimerobot.com/pricing/) — 50 HTTP/HTTPS/Port monitors with 5-minute check intervals and public status page. | Verified: 2026-10-23
+  - **Uptime Kuma (Self-Hosted OSS)** (https://github.com/louislam/uptime-kuma) — MIT-licensed self-hosted uptime monitoring dashboard with 90+ alert integrations (Telegram, Slack, Email, Webhook). | Verified: 2026-10-23
+  - **SigNoz (Open-Source APM & Logs)** (https://signoz.io/pricing/) — Open-source OpenTelemetry native APM, logs, and metrics platform backed by ClickHouse. | Verified: 2026-10-23
+  - **Prometheus & Alertmanager (OSS)** (https://prometheus.io/) — Apache-2.0 industry-standard time-series monitoring and alerting toolkit for cloud-native services. | Verified: 2026-10-23
+  - **Umami Analytics (Open Source & Cloud Hobby)** (https://umami.is/pricing) — MIT-licensed privacy-first, cookie-free web analytics; 100,000 events/month free on Umami Cloud Hobby. | Verified: 2026-10-23
+  - **Checkly Hobby Plan** (https://www.checklyhq.com/pricing/) — 10,000 API check runs and 1,500 Playwright browser synthetic check runs per month at no charge. | Verified: 2026-10-23
+  - **Rollbar Free Plan** (https://rollbar.com/pricing/) — 5,000 error events per month with real-time stack trace grouping and Git blame correlation. | Verified: 2026-10-23
+  - **Netdata Community** (https://www.netdata.cloud/pricing/) — GPLv3 real-time per-second Linux server and container health monitoring agent. | Verified: 2026-10-23
+  - **Plausible Analytics Community Edition (Self-Hosted)** (https://github.com/plausible/analytics) — Free self-hosted Community Edition via Docker (AGPL-3.0 standalone service) with custom goals, funnels, and HTTP Events API. | Verified: 2026-10-23
+
+### DNS & Domains (14 entries)
+  - **Cloudflare Authoritative DNS & DDoS** (https://www.cloudflare.com/plans/) — Global anycast DNS resolution, unmetered DDoS mitigation, Universal SSL, and 3 page rules free. | Verified: 2026-10-23
+  - **Let's Encrypt TLS Certificates** (https://letsencrypt.org/) — Automated ACME X.509 SSL/TLS certificates including wildcard certificates via DNS-01 challenge, 100% free. | Verified: 2026-10-23
+  - **Hurricane Electric Free DNS** (https://dns.he.net/) — Authoritative IPv4/IPv6 DNS hosting for up to 50 domains with dynamic DNS and slave zone support. | Verified: 2026-10-23
+  - **deSEC.io Managed DNSSEC** (https://desec.io/) — Non-profit, open-source authoritative DNS hosting with automatic DNSSEC signing and REST API for ACME challenges. | Verified: 2026-10-23
+  - **DuckDNS Dynamic DNS** (https://www.duckdns.org/) — 5 free `*.duckdns.org` subdomains with token-based HTTP IP update API and Let’s Encrypt DNS-01 compatibility. | Verified: 2026-10-23
+  - **Cloudflare Tunnel (Zero Trust Free)** (https://www.cloudflare.com/plans/zero-trust-services/) — Securely expose local or VPS services (`cloudflared`) to custom domains without opening inbound firewall ports; free up to 50 users. | Verified: 2026-10-23
+  - **Tailscale Personal Plan** (https://tailscale.com/pricing) — WireGuard-based mesh VPN and MagicDNS free for up to 3 users and 100 connected devices. | Verified: 2026-10-23
+  - **ngrok Free Plan** (https://ngrok.com/pricing) — 1 static `*.ngrok-free.app` domain with HTTPS tunneling for testing Paystack, Novu, and GitHub webhooks locally. | Verified: 2026-10-23
+  - **NextDNS Free Tier** (https://nextdns.io/pricing) — 300,000 encrypted DNS queries per month with custom blocklists, threat intelligence filtering, and analytics. | Verified: 2026-10-23
+  - **ZeroSSL ACME Certificates** (https://zerossl.com/pricing/) — Unlimited 90-day TLS certificates when issued via standard ACME client (Caddy, Certbot, acme.sh). | Verified: 2026-10-23
+  - **Namecheap FreeDNS** (https://www.namecheap.com/domains/freedns/) — Free authoritative secondary and primary DNS management for domains registered with any registrar. | Verified: 2026-10-23
+  - **Bunny DNS Free Included Tier** (https://bunny.net/pricing/dns/) — 20 million free authoritative DNS queries per month including geo-routing and scriptable DNS records. | Verified: 2026-10-23
+  - **CoreDNS (CNCF Open Source)** (https://coredns.io/) — Apache-2.0 plugin-based DNS server and service discovery engine for Kubernetes and self-hosted clusters. | Verified: 2026-10-23
+  - **frp (Fast Reverse Proxy OSS)** (https://github.com/fatedier/frp) — Apache-2.0 self-hosted reverse proxy for exposing local servers behind NAT or firewalls via your own VPS. | Verified: 2026-10-23
+
+### Storage & Media (15 entries)
+  - **Cloudflare R2 Object Storage** (https://developers.cloudflare.com/r2/pricing/) — 10 GB monthly S3-compatible object storage with zero egress fees, 1M Class A ops, and 10M Class B ops/month. | Verified: 2026-10-23
+  - **Backblaze B2 Free Tier** (https://www.backblaze.com/cloud-storage/pricing) — First 10 GB of S3-compatible cloud object storage free every month with free daily egress up to 3x stored volume. | Verified: 2026-10-23
+  - **Strapi Community Edition (Self-Hosted)** (https://strapi.io/pricing-self-hosted) — MIT-licensed headless CMS for managing structured directory entries, templates, documentation, and media libraries. | Verified: 2026-10-23
+  - **Google Cloud Storage Free Tier** (https://cloud.google.com/storage/pricing) — 5 GB-months of Standard Storage in qualifying US regions, 5,000 Class A operations, and 50,000 Class B operations/month. | Verified: 2026-10-23
+  - **Cloudinary Free Plan** (https://cloudinary.com/pricing) — 25 monthly credits (~25 GB managed storage or viewing bandwidth) with on-the-fly image/video resizing and AVIF/WebP delivery. | Verified: 2026-10-23
+  - **ImageKit.io Forever Free** (https://imagekit.io/plans/) — 20 GB monthly CDN bandwidth and 20 GB media library storage with real-time URL image transformations. | Verified: 2026-10-23
+  - **UploadThing Free Tier** (https://uploadthing.com/pricing) — 2 GB file storage with type-safe React/TypeScript file dropzones and signed upload callbacks. | Verified: 2026-10-23
+  - **Storj Decentralized Object Storage Free** (https://www.storj.io/pricing) — 25 GB S3-compatible encrypted object storage and 25 GB monthly bandwidth at no cost. | Verified: 2026-10-23
+  - **Pinata IPFS Free Plan** (https://www.pinata.cloud/pricing) — 1 GB pinned IPFS storage and 10,000 gateway requests per month for content-addressed files. | Verified: 2026-10-23
+  - **Directus Open Source / BSL Self-Hosted** (https://directus.io/pricing) — Headless data studio and REST/GraphQL asset API that wraps any SQL database; free for self-hosting under $5M revenue. | Verified: 2026-10-23
+  - **Payload CMS (MIT Open Source)** (https://payloadcms.com/) — MIT-licensed code-first TypeScript headless CMS and media manager built on Next.js with Postgres/MongoDB adapters. | Verified: 2026-10-23
+  - **Ghost Open Source** (https://ghost.org/docs/) — MIT-licensed Node.js publishing, documentation, and newsletter platform with a headless Content API. | Verified: 2026-10-23
+  - **Sanity.io Free Plan** (https://www.sanity.io/pricing) — 10,000 documents, 100 GB asset bandwidth, 5 GB file storage, and 250,000 API CDN requests per month. | Verified: 2026-10-23
+  - **Contentful Free Plan** (https://www.contentful.com/pricing/) — 100,000 API calls per month, 50 GB CDN bandwidth, and up to 25 content types for structured publishing. | Verified: 2026-10-23
+  - **SeaweedFS (Apache-2.0 Object Store)** (https://github.com/seaweedfs/seaweedfs) — Apache-2.0 distributed filesystem and S3-compatible object storage with O(1) disk seek time. | Verified: 2026-10-23
