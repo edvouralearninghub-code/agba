@@ -1,0 +1,43 @@
+name: Provision Live Appwrite Cloud Frankfurt (agba - 6adc7d7a000b5b27d58d)
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment_mode:
+        description: "Bootstrap mode ('production' skips dev/test seed teams; 'development' seeds ws_trendtactics_lagos)"
+        required: true
+        default: "production"
+        type: choice
+        options:
+          - production
+          - development
+
+jobs:
+  provision-appwrite-cloud:
+    name: Provision 10 TablesDB Tables & rag_files Bucket on Appwrite Cloud (Frankfurt)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install Dependencies
+        run: npm install --legacy-peer-deps
+
+      - name: Run Appwrite 2.6.1 Bootstrap Against Frankfurt Cloud Project (6adc7d7a000b5b27d58d)
+        env:
+          NODE_ENV: ${{ inputs.environment_mode }}
+          APPWRITE_ENDPOINT: "https://fra.cloud.appwrite.io/v1"
+          APPWRITE_PROJECT_ID: "6adc7d7a000b5b27d58d"
+          APPWRITE_API_KEY: ${{ secrets.APPWRITE_API_KEY }}
+        run: |
+          if [ -z "$APPWRITE_API_KEY" ]; then
+            echo "::error::Missing GitHub Secret APPWRITE_API_KEY. Add it at Settings -> Secrets and variables -> Actions -> New repository secret."
+            exit 1
+          fi
+          npx tsx scripts/bootstrap-appwrite.ts | tee -a "$GITHUB_STEP_SUMMARY"

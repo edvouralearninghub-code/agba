@@ -44,6 +44,20 @@ jobs:
       - name: Validate Appwrite 2.6.1 Manifest & Bootstrap Dry-Run
         run: npm run bootstrap:appwrite
 
+      - name: Auto-Provision Live Appwrite Cloud Frankfurt (6adc7d7a000b5b27d58d) When APPWRITE_API_KEY Secret Is Set
+        env:
+          NODE_ENV: "production"
+          APPWRITE_ENDPOINT: "https://fra.cloud.appwrite.io/v1"
+          APPWRITE_PROJECT_ID: "6adc7d7a000b5b27d58d"
+          APPWRITE_API_KEY: ${{ secrets.APPWRITE_API_KEY }}
+        run: |
+          if [ -n "$APPWRITE_API_KEY" ]; then
+            echo "=== Auto-Provisioning Live Appwrite Cloud Frankfurt (Project: 6adc7d7a000b5b27d58d) ===" | tee -a "$GITHUB_STEP_SUMMARY"
+            npx tsx scripts/bootstrap-appwrite.ts | tee -a "$GITHUB_STEP_SUMMARY"
+          else
+            echo "[INFO] GitHub Secret APPWRITE_API_KEY is not set yet; skipped live Appwrite Cloud Frankfurt (6adc7d7a000b5b27d58d) provisioning." | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
+
       - name: Run Unit, License Hygiene, Dev-Only Seed Check, Identity Bridge & Dirty Dozen Suite
         run: npm run verify:phase0
 
