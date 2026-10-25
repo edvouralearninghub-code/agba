@@ -53,13 +53,50 @@ services:
     networks:
       - agba-net
 
-  # 2. Local Appwrite 2.6.1 Instance (TablesDB, Auth, Teams, Storage & Console)
+  # 2. Local Appwrite 2.6.1 Edge Router (Routes /v1/* to Appwrite API & / to Appwrite Console UI on :8080)
+  traefik:
+    image: traefik:3.6
+    container_name: agba-appwrite-traefik
+    restart: unless-stopped
+    command:
+      - --providers.docker=true
+      - --providers.docker.exposedByDefault=false
+      - --providers.docker.constraints=Label(`traefik.constraint-label-stack`,`appwrite`)
+      - --entrypoints.appwrite_web.address=:80
+    ports:
+      - "${APPWRITE_HTTP_PORT:-8080}:80"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      - appwrite
+      - appwrite-console
+    networks:
+      - agba-net
+
+  # 2b. Local Appwrite 2.6.1 Visual Web Console UI (Served at http://localhost:8080/console)
+  appwrite-console:
+    image: appwrite/new:1.2.97-self-hosted
+    container_name: agba-appwrite-console
+    restart: unless-stopped
+    environment:
+      - VITE_CONSOLE_PROFILE=self-hosted
+      - VITE_APPWRITE_VERSION=2.6.1
+      - APPWRITE_ENDPOINT_SAME_ORIGIN=true
+    labels:
+      - traefik.enable=true
+      - traefik.constraint-label-stack=appwrite
+      - traefik.http.services.appwrite_console.loadbalancer.server.port=3000
+      - traefik.http.routers.appwrite_console_http.entrypoints=appwrite_web
+      - traefik.http.routers.appwrite_console_http.rule=!PathPrefix(`/v1`) && !PathPrefix(`/.well-known`)
+      - traefik.http.routers.appwrite_console_http.service=appwrite_console
+    networks:
+      - agba-net
+
+  # 2c. Local Appwrite 2.6.1 Core API (TablesDB, Auth, Teams & Storage at /v1/*)
   appwrite:
     image: appwrite/appwrite:2.6.1
     container_name: agba-appwrite
     restart: unless-stopped
-    ports:
-      - "${APPWRITE_HTTP_PORT:-8080}:80"
     env_file:
       - path: infra/appwrite/env.template
         required: false
@@ -82,6 +119,13 @@ services:
       _APP_REDIS_HOST: redis
       _APP_REDIS_PORT: 6379
       _APP_STORAGE_DEVICE: Local
+    labels:
+      - traefik.enable=true
+      - traefik.constraint-label-stack=appwrite
+      - traefik.http.services.appwrite_api.loadbalancer.server.port=80
+      - traefik.http.routers.appwrite_api_http.entrypoints=appwrite_web
+      - traefik.http.routers.appwrite_api_http.rule=PathPrefix(`/v1`) || PathPrefix(`/.well-known`)
+      - traefik.http.routers.appwrite_api_http.service=appwrite_api
     volumes:
       - appwrite_uploads:/storage/uploads:rw
       - appwrite_cache:/storage/cache:rw
