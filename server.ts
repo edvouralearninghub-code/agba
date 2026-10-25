@@ -3,7 +3,6 @@ import express from 'express';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import { createServer as createViteServer } from 'vite';
 import { z } from 'zod';
 import { GoogleGenAI } from '@google/genai';
 import {
@@ -1197,11 +1196,13 @@ async function startServer() {
       console.log(`AGBA Full-Stack Server listening on http://0.0.0.0:${port}`);
     });
   } else {
+    const vitePkgName = 'vite';
+    const { createServer: createViteServer } = await import(vitePkgName);
     let viteMiddleware: express.RequestHandler | null = null;
     const vitePromise = createViteServer({
       server: { middlewareMode: true },
       appType: 'spa',
-    }).then((vite) => {
+    }).then((vite: { middlewares: express.RequestHandler }) => {
       viteMiddleware = vite.middlewares;
       return vite;
     });
@@ -1223,7 +1224,7 @@ async function startServer() {
   }
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (!process.env.VERCEL && process.argv[1] && import.meta.url === `file://${process.argv[1]}`) {
   startServer();
 }
 
