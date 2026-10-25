@@ -5,7 +5,13 @@ FROM node:22-alpine AS builder
 WORKDIR /app
 
 COPY package.json .npmrc* ./
-RUN npm install --legacy-peer-deps
+RUN --mount=type=cache,target=/root/.npm \
+    npm config set fetch-retries 10 && \
+    npm config set fetch-retry-mintimeout 20000 && \
+    npm config set fetch-retry-maxtimeout 120000 && \
+    npm config set fetch-timeout 300000 && \
+    npm config set maxsockets 10 && \
+    npm install --legacy-peer-deps --no-audit --no-fund
 
 COPY . .
 RUN mkdir -p /app/data && npm run build

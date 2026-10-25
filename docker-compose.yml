@@ -104,7 +104,7 @@ services:
 
   # 3. Redis 7.4 Container (Serves Appwrite 2.6.1 & AGBA Sliding-Window Quota Store)
   redis:
-    image: redis:7.4.7-alpine@sha256:02f2cc4882f8bf87c79a220ac958f58c700bdec0dfb9b9ea61b62fb0e8f1bfcf
+    image: redis:7.4.7-alpine
     container_name: agba-redis
     restart: unless-stopped
     command: >
@@ -147,7 +147,7 @@ services:
 
   # 5. AGBA Multi-Dimension pgvector (PostgreSQL 16 + rag_chunks_768 / 1024 / 1536 RLS)
   agba-pgvector:
-    image: pgvector/pgvector:pg16@sha256:7b822b0aac60967beb1ea5e576b8602c94c300a157d187f385ae3e0da199b90a
+    image: pgvector/pgvector:pg16
     container_name: agba-pgvector
     restart: unless-stopped
     environment:
