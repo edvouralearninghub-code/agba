@@ -168,6 +168,34 @@ jobs:
           echo "" | tee -a "$GITHUB_STEP_SUMMARY"
           npx tsx scripts/report-appwrite-memory-and-backup-scope.ts | tee -a "$GITHUB_STEP_SUMMARY"
 
+      - name: Build & Boot AGBA Platform Docker Container (Dockerfile) & Verify /api/status
+        env:
+          APPWRITE_API_KEY: ${{ secrets.APPWRITE_API_KEY }}
+        run: |
+          echo "=== Building & Starting agba-platform Docker Image ===" | tee -a "$GITHUB_STEP_SUMMARY"
+          docker build -t agba-platform:ci .
+          docker run -d --name agba-platform-ci \
+            -p 3000:3000 \
+            -e NODE_ENV=production \
+            -e PORT=3000 \
+            -e APPWRITE_ENDPOINT="https://fra.cloud.appwrite.io/v1" \
+            -e APPWRITE_PROJECT_ID="6adc7d7a000b5b27d58d" \
+            -e APPWRITE_API_KEY="$APPWRITE_API_KEY" \
+            agba-platform:ci
+
+          for i in $(seq 1 20); do
+            if curl -fsS http://127.0.0.1:3000/healthz | grep -q "ok"; then
+              echo "agba-platform container is healthy on port 3000!"
+              break
+            fi
+            sleep 2
+          done
+
+          echo "=== Docker Container /api/status Response ===" | tee -a "$GITHUB_STEP_SUMMARY"
+          curl -fsS http://127.0.0.1:3000/api/status | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "" | tee -a "$GITHUB_STEP_SUMMARY"
+          docker rm -f agba-platform-ci
+
       - name: Provision Live Appwrite Cloud Frankfurt (Project 6adc7d7a000b5b27d58d)
         env:
           APPWRITE_API_KEY: ${{ secrets.APPWRITE_API_KEY }}
@@ -181,4 +209,5 @@ jobs:
           APPWRITE_ENDPOINT="https://fra.cloud.appwrite.io/v1" \
           APPWRITE_PROJECT_ID="6adc7d7a000b5b27d58d" \
           npx tsx scripts/bootstrap-appwrite.ts --seed-dev | tee -a "$GITHUB_STEP_SUMMARY"
+
 
