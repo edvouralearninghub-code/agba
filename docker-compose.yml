@@ -1,11 +1,19 @@
 # ==============================================================================
-# AGBA Turnkey Docker Stack (Works NOW with Vercel + Appwrite Cloud Frankfurt)
-# No Oracle Cloud or Coolify required — runs in GitHub Actions or Docker Desktop:
+# AGBA Full Local Parity Stack (docker-compose.yml)
+# Integrates:
+#   1. agba          — AGBA Frontend + Express Trusted API Gateway (http://localhost:3000)
+#   2. appwrite      — Local Appwrite 2.6.1 Core & Console         (http://localhost:8080)
+#   3. redis         — Redis 7.4.7 Cache, Queues & Quota Store     (localhost:6380)
+#   4. postgresql    — Appwrite 2.6.1 TablesDB PostgreSQL Engine
+#   5. agba-pgvector — PostgreSQL 16 + pgvector (768/1024/1536 RLS) (localhost:5433)
+#
+# Quick Start (in Docker Desktop Terminal or PowerShell/Bash):
 #   docker compose up -d --build
 # ==============================================================================
 
 services:
-  agba-platform:
+  # 1. AGBA Frontend (React 19 + Vite) & Express API Gateway
+  agba:
     build:
       context: .
       dockerfile: Dockerfile
@@ -19,48 +27,83 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3000
-      APPWRITE_ENDPOINT: ${APPWRITE_ENDPOINT:-https://fra.cloud.appwrite.io/v1}
+      # Defaults to local Appwrite 2.6.1 container for local-cloud parity
+      # (Override in .env with https://fra.cloud.appwrite.io/v1 to target Frankfurt Cloud)
+      APPWRITE_ENDPOINT: ${APPWRITE_ENDPOINT:-http://appwrite/v1}
       APPWRITE_PROJECT_ID: ${APPWRITE_PROJECT_ID:-6adc7d7a000b5b27d58d}
       APPWRITE_DATABASE_ID: ${APPWRITE_DATABASE_ID:-agba_core}
       APPWRITE_BUCKET_ID: ${APPWRITE_BUCKET_ID:-rag_files}
       APPWRITE_API_KEY: ${APPWRITE_API_KEY:-}
       AGBA_MASTER_ENCRYPTION_KEY: ${AGBA_MASTER_ENCRYPTION_KEY:-5bcd3fac71ea95ebc9d4e2778184bdd701f5ddb2bcf3f4511887c0899c795d4a}
+      REDIS_URL: redis://redis:6379
       POSTGRES_HOST: agba-pgvector
       POSTGRES_PORT: 5432
       POSTGRES_USER: ${POSTGRES_USER:-agba}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-agba_local_pgvector_pass}
       POSTGRES_DB: ${POSTGRES_DB:-agba_vectors}
-      REDIS_URL: redis://agba-redis:6379
     volumes:
       - agba_data:/app/data
     depends_on:
+      appwrite:
+        condition: service_started
+      redis:
+        condition: service_healthy
       agba-pgvector:
         condition: service_healthy
-      agba-redis:
-        condition: service_healthy
+    networks:
+      - agba-net
 
-  # PostgreSQL 16 + pgvector container (768, 1024, and 1536 embedding tables with RLS)
-  agba-pgvector:
-    image: pgvector/pgvector:pg16@sha256:7b822b0aac60967beb1ea5e576b8602c94c300a157d187f385ae3e0da199b90a
-    container_name: agba-pgvector
+  # 2. Local Appwrite 2.6.1 Instance (TablesDB, Auth, Teams, Storage & Console)
+  appwrite:
+    image: appwrite/appwrite:2.6.1
+    container_name: agba-appwrite
     restart: unless-stopped
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER:-agba}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-agba_local_pgvector_pass}
-      POSTGRES_DB: ${POSTGRES_DB:-agba_vectors}
     ports:
-      - "${AGBA_PGVECTOR_PORT:-5433}:5432"
+      - "${APPWRITE_HTTP_PORT:-8080}:80"
+    env_file:
+      - path: infra/appwrite/env.template
+        required: false
+    environment:
+      _APP_ENV: development
+      _APP_EDITION: self-hosted
+      _APP_LOCALE: en
+      _APP_OPENSSL_KEY_V1: ${AGBA_MASTER_ENCRYPTION_KEY:-5bcd3fac71ea95ebc9d4e2778184bdd701f5ddb2bcf3f4511887c0899c795d4a}
+      _APP_DOMAIN: localhost
+      _APP_CONSOLE_DOMAIN: localhost
+      _APP_OPTIONS_FORCE_HTTPS: disabled
+      _APP_OPTIONS_ABUSE: disabled
+      _APP_DB_ADAPTER: postgresql
+      _APP_DB_HOST: postgresql
+      _APP_DB_PORT: 5432
+      _APP_DB_SCHEMA: appwrite
+      _APP_DB_USER: user
+      _APP_DB_PASS: password
+      _APP_DB_ROOT_PASS: rootsecretpassword
+      _APP_REDIS_HOST: redis
+      _APP_REDIS_PORT: 6379
+      _APP_STORAGE_DEVICE: Local
     volumes:
-      - agba_pgdata:/var/lib/postgresql/data
+      - appwrite_uploads:/storage/uploads:rw
+      - appwrite_cache:/storage/cache:rw
+      - appwrite_config:/storage/config:rw
+      - appwrite_certificates:/storage/certificates:rw
+      - appwrite_functions:/storage/functions:rw
+    depends_on:
+      postgresql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-agba} -d $${POSTGRES_DB:-agba_vectors}"]
-      interval: 5s
+      test: ["CMD-SHELL", "curl -fsS http://localhost/v1/health/version >/dev/null 2>&1 || exit 1"]
+      interval: 10s
       timeout: 5s
       retries: 12
-      start_period: 10s
+      start_period: 30s
+    networks:
+      - agba-net
 
-  # Redis 7.4 sliding-window rate-limit & quota store
-  agba-redis:
+  # 3. Redis 7.4 Container (Serves Appwrite 2.6.1 & AGBA Sliding-Window Quota Store)
+  redis:
     image: redis:7.4.7-alpine@sha256:02f2cc4882f8bf87c79a220ac958f58c700bdec0dfb9b9ea61b62fb0e8f1bfcf
     container_name: agba-redis
     restart: unless-stopped
@@ -72,15 +115,69 @@ services:
     ports:
       - "${AGBA_REDIS_PORT:-6380}:6379"
     volumes:
-      - agba_redis_data:/data
+      - agba_redis_data:/data:rw
     healthcheck:
       test: ["CMD-SHELL", "redis-cli ping | grep PONG"]
       interval: 5s
       timeout: 3s
       retries: 12
       start_period: 5s
+    networks:
+      - agba-net
+
+  # 4. Appwrite 2.6.1 Core PostgreSQL Database
+  postgresql:
+    image: appwrite/postgres:0.1.0
+    container_name: agba-appwrite-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: appwrite
+    volumes:
+      - appwrite_postgres_data:/var/lib/postgresql/data:rw
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d appwrite"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    networks:
+      - agba-net
+
+  # 5. AGBA Multi-Dimension pgvector (PostgreSQL 16 + rag_chunks_768 / 1024 / 1536 RLS)
+  agba-pgvector:
+    image: pgvector/pgvector:pg16@sha256:7b822b0aac60967beb1ea5e576b8602c94c300a157d187f385ae3e0da199b90a
+    container_name: agba-pgvector
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-agba}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-agba_local_pgvector_pass}
+      POSTGRES_DB: ${POSTGRES_DB:-agba_vectors}
+    ports:
+      - "${AGBA_PGVECTOR_PORT:-5433}:5432"
+    volumes:
+      - agba_pgdata:/var/lib/postgresql/data:rw
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-agba} -d $${POSTGRES_DB:-agba_vectors}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    networks:
+      - agba-net
+
+networks:
+  agba-net:
+    driver: bridge
 
 volumes:
   agba_data:
   agba_pgdata:
   agba_redis_data:
+  appwrite_uploads:
+  appwrite_cache:
+  appwrite_config:
+  appwrite_certificates:
+  appwrite_functions:
+  appwrite_postgres_data:
