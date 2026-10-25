@@ -184,7 +184,7 @@ export const MarketingLanding: React.FC<MarketingLandingProps> = ({
 
   return (
     <div
-      className={`min-h-screen transition-colors duration-200 ${
+      className={`min-h-screen w-full overflow-x-hidden transition-colors duration-200 ${
         isDark ? 'bg-[#0E1030] text-[#FAF6EC]' : 'bg-[#FAF6EC] text-[#0F1226]'
       }`}
     >
@@ -196,13 +196,13 @@ export const MarketingLanding: React.FC<MarketingLandingProps> = ({
             : 'border-[#0F1226]/10 bg-[#FAF6EC]/95'
         }`}
       >
-        <div className="mx-auto flex max-w-[1200px] items-center justify-between gap-8 px-4 py-4 sm:px-6">
+        <div className="mx-auto flex max-w-[1200px] items-center justify-between gap-2 px-3 py-3 sm:gap-4 sm:px-6 md:gap-8 md:py-4">
           {/* Zone 1: Brand Crest & Wordmark */}
           <a
             href="#top"
-            className="group inline-flex items-center gap-2.5 font-display text-xl font-bold tracking-tight whitespace-nowrap shrink-0"
+            className="group inline-flex items-center gap-2 font-display text-lg font-bold tracking-tight whitespace-nowrap shrink-0 sm:gap-2.5 sm:text-xl"
           >
-            <AgbaLogoMark size={30} />
+            <AgbaLogoMark size={28} />
             <span>AGBA</span>
           </a>
 
@@ -269,13 +269,13 @@ export const MarketingLanding: React.FC<MarketingLandingProps> = ({
             })}
           </nav>
 
-          {/* Zone 3: Theme Toggle & Primary Action */}
-          <div className="flex items-center gap-2.5 shrink-0">
+          {/* Zone 3: Theme Toggle, Primary Action & Mobile Hamburger */}
+          <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
             <button
               type="button"
               onClick={onToggleTheme}
               aria-label={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-current/15 px-2.5 py-2 text-xs font-medium hover:bg-current/5 whitespace-nowrap shrink-0"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-current/15 p-2 sm:px-2.5 sm:py-2 text-xs font-medium hover:bg-current/5 whitespace-nowrap shrink-0"
             >
               {isDark ? (
                 <Sun className="h-3.5 w-3.5 text-[#D9A441]" />
@@ -288,16 +288,17 @@ export const MarketingLanding: React.FC<MarketingLandingProps> = ({
             <button
               type="button"
               onClick={onEnterStudio}
-              className="rounded-lg bg-[#D9A441] px-4 py-2 text-xs font-semibold text-[#0F1226] transition-colors duration-150 hover:bg-[#c89332] whitespace-nowrap shrink-0"
+              className="rounded-lg bg-[#D9A441] px-2.5 py-2 sm:px-4 text-xs font-semibold text-[#0F1226] transition-colors duration-150 hover:bg-[#c89332] whitespace-nowrap shrink-0"
             >
-              Start building free
+              <span className="sm:hidden">Start free</span>
+              <span className="hidden sm:inline">Start building free</span>
             </button>
 
             <button
               type="button"
               onClick={() => setMobileNavOpen((o) => !o)}
               aria-label="Toggle mobile menu"
-              className="rounded-lg border border-current/15 p-2 md:hidden"
+              className="inline-flex items-center justify-center rounded-lg border border-current/15 p-2 md:hidden shrink-0"
             >
               {mobileNavOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
             </button>

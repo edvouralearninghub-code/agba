@@ -108,8 +108,8 @@ interface AgbaHeroBackdropProps {
 /**
  * Calm, atmospheric background tapestry for the Hero section.
  * Renders the Àgbà (wise Yoruba elder) geometric medallion, gentle orbital rings,
- * and the three subtle constellation anchors (Learn · Build · Ship) seamlessly
- * blended into the right half of the Hero backdrop with zero card clutter.
+ * and the three subtle constellation anchors (01 · LEARN, 02 · BUILD, 03 · SHIP)
+ * seamlessly blended into the right half of the Hero backdrop.
  */
 export const AgbaHeroBackdrop: React.FC<AgbaHeroBackdropProps> = ({ isDark }) => {
   const strokePrimary = isDark ? '#D9A441' : '#3B3FA8';

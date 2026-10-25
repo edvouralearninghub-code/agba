@@ -16,7 +16,11 @@
     "migrate:firestore": "tsx scripts/migrate-firestore-to-appwrite.ts",
     "report:appwrite-scope": "tsx scripts/report-appwrite-memory-and-backup-scope.ts",
     "verify:appwrite-live": "tsx scripts/verify-appwrite-integration.ts",
-    "verify:phase0": "tsx scripts/verify-phase0.ts"
+    "verify:phase0": "tsx scripts/verify-phase0.ts",
+    "docker:up": "cp -n infra/appwrite/env.template infra/appwrite/.env 2>/dev/null || true && docker compose --env-file infra/appwrite/.env -f infra/appwrite/docker-compose.yml -f infra/appwrite/docker-compose.override.yml up -d",
+    "docker:down": "docker compose --env-file infra/appwrite/.env -f infra/appwrite/docker-compose.yml -f infra/appwrite/docker-compose.override.yml down",
+    "docker:logs": "docker compose --env-file infra/appwrite/.env -f infra/appwrite/docker-compose.yml -f infra/appwrite/docker-compose.override.yml logs -f",
+    "cloud:bootstrap": "APPWRITE_ENDPOINT=https://fra.cloud.appwrite.io/v1 APPWRITE_PROJECT_ID=6adc7d7a000b5b27d58d tsx scripts/bootstrap-appwrite.ts"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

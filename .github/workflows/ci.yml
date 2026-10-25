@@ -167,3 +167,18 @@ jobs:
           docker stats --no-stream --format "table {{.Name}}\t{{.Image}}\t{{.CPUPerc}}\t{{.MemUsage}}\t{{.MemPerc}}" | tee -a "$GITHUB_STEP_SUMMARY"
           echo "" | tee -a "$GITHUB_STEP_SUMMARY"
           npx tsx scripts/report-appwrite-memory-and-backup-scope.ts | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Provision Live Appwrite Cloud Frankfurt (Project 6adc7d7a000b5b27d58d)
+        env:
+          APPWRITE_API_KEY: ${{ secrets.APPWRITE_API_KEY }}
+        run: |
+          if [ -z "$APPWRITE_API_KEY" ]; then
+            echo "No APPWRITE_API_KEY secret set yet — skipping live Frankfurt Cloud sync."
+            exit 0
+          fi
+          echo "=== Syncing 10 TablesDB Tables, Storage Bucket & Seed Data to Appwrite Cloud Frankfurt (6adc7d7a000b5b27d58d) ===" | tee -a "$GITHUB_STEP_SUMMARY"
+          NODE_ENV=production \
+          APPWRITE_ENDPOINT="https://fra.cloud.appwrite.io/v1" \
+          APPWRITE_PROJECT_ID="6adc7d7a000b5b27d58d" \
+          npx tsx scripts/bootstrap-appwrite.ts --seed-dev | tee -a "$GITHUB_STEP_SUMMARY"
+
