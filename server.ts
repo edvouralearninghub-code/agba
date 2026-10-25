@@ -307,7 +307,7 @@ export async function buildSystemReadinessReport(strictLiveAppwrite = false) {
         }
       })(),
       detail: appwriteReachability.ok
-        ? `Connected to live Appwrite ${appwriteReachability.version || '2.6.1'} (${appwriteSummary.projectId})`
+        ? `Connected to live Appwrite ${appwriteReachability.version || '2.6.1'} (${appwriteSummary.projectId}) — ${appwriteReachability.authNote || 'operational'}`
         : 'Running on local encrypted JSON standby (live Appwrite daemon not reachable in this container)',
     },
     {

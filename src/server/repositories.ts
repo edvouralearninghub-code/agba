@@ -562,16 +562,29 @@ export class AppwriteTablesBridge {
   constructor() {
     this.endpoint = (
       process.env.APPWRITE_ENDPOINT || 'https://fra.cloud.appwrite.io/v1'
-    ).replace(/\/$/, '');
-    this.projectId = process.env.APPWRITE_PROJECT_ID || '6adc7d7a000b5b27d58d';
-    this.databaseId = process.env.APPWRITE_DATABASE_ID || 'agba_core';
-    this.bucketId = process.env.APPWRITE_BUCKET_ID || 'rag_files';
-    this.apiKey = process.env.APPWRITE_API_KEY || '';
+    )
+      .trim()
+      .replace(/^["']|["']$/g, '')
+      .replace(/\/$/, '');
+    this.projectId = (process.env.APPWRITE_PROJECT_ID || '6adc7d7a000b5b27d58d')
+      .trim()
+      .replace(/^["']|["']$/g, '');
+    this.databaseId = (process.env.APPWRITE_DATABASE_ID || 'agba_core')
+      .trim()
+      .replace(/^["']|["']$/g, '');
+    this.bucketId = (process.env.APPWRITE_BUCKET_ID || 'rag_files')
+      .trim()
+      .replace(/^["']|["']$/g, '');
+    this.apiKey = (process.env.APPWRITE_API_KEY || '')
+      .trim()
+      .replace(/^["']|["']$/g, '');
   }
 
   public isConfigured(): boolean {
     return Boolean(
       this.apiKey &&
+        !this.apiKey.startsWith('http://') &&
+        !this.apiKey.startsWith('https://') &&
         this.apiKey !== 'YOUR_APPWRITE_LEAST_PRIVILEGE_SERVER_API_KEY' &&
         this.apiKey !== 'YOUR_APPWRITE_SERVER_API_KEY'
     );
@@ -613,19 +626,77 @@ export class AppwriteTablesBridge {
     };
   }
 
-  public async checkReachability(): Promise<{ ok: boolean; version?: string; status: number }> {
-    if (!this.isConfigured() && this.endpoint.includes('cloud.appwrite.io')) {
-      return { ok: false, status: 401 };
-    }
+  public async checkReachability(): Promise<{
+    ok: boolean;
+    version?: string;
+    status: number;
+    keyAuthenticated?: boolean;
+    authNote?: string;
+  }> {
     try {
-      const res = await fetch(`${this.endpoint}/health/version`, {
+      // 1. Probe /health/version with project header only (Appwrite Cloud /health/version rejects non-health API keys)
+      const versionRes = await fetch(`${this.endpoint}/health/version`, {
         method: 'GET',
-        headers: this.isConfigured() ? this.headers : { 'X-Appwrite-Project': this.projectId },
-        signal: AbortSignal.timeout(2500),
+        headers: { 'X-Appwrite-Project': this.projectId },
+        signal: AbortSignal.timeout(4000),
       });
-      if (!res.ok) return { ok: false, status: res.status };
-      const data = (await res.json().catch(() => ({}))) as { version?: string };
-      return { ok: true, version: data.version || '2.6.1', status: res.status };
+
+      let version = '2.6.1';
+      const endpointReachable = versionRes.ok;
+      if (versionRes.ok) {
+        const data = (await versionRes.json().catch(() => ({}))) as { version?: string };
+        if (data.version) version = data.version;
+      }
+
+      // 2. If APPWRITE_API_KEY is configured, also probe /databases to verify key authentication & scopes
+      if (this.isConfigured()) {
+        const dbRes = await fetch(`${this.endpoint}/databases`, {
+          method: 'GET',
+          headers: this.headers,
+          signal: AbortSignal.timeout(4000),
+        });
+
+        if (dbRes.ok) {
+          return {
+            ok: true,
+            version,
+            status: 200,
+            keyAuthenticated: true,
+            authNote: 'API key authenticated (TablesDB & Storage active)',
+          };
+        }
+
+        const errData = (await dbRes.json().catch(() => ({}))) as {
+          type?: string;
+          version?: string;
+        };
+        if (errData.version) version = errData.version;
+
+        if (endpointReachable) {
+          return {
+            ok: true,
+            version,
+            status: 200,
+            keyAuthenticated: false,
+            authNote:
+              errData.type === 'general_unauthorized_scope'
+                ? 'Cloud endpoint online (enable databases.read & tables.read scopes on APPWRITE_API_KEY)'
+                : 'Cloud endpoint online (hybrid encrypted store active; verify APPWRITE_API_KEY secret)',
+          };
+        }
+      }
+
+      if (endpointReachable) {
+        return {
+          ok: true,
+          version,
+          status: 200,
+          keyAuthenticated: false,
+          authNote: 'Cloud endpoint online (hybrid encrypted standby active)',
+        };
+      }
+
+      return { ok: false, status: versionRes.status };
     } catch {
       return { ok: false, status: 0 };
     }
