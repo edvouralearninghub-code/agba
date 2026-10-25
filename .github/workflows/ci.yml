@@ -183,7 +183,7 @@ jobs:
             -e APPWRITE_API_KEY="$APPWRITE_API_KEY" \
             agba-platform:ci
 
-          for i in $(seq 1 20); do
+          for i in $(seq 1 30); do
             if curl -fsS http://127.0.0.1:3000/healthz | grep -q "ok"; then
               echo "agba-platform container is healthy on port 3000!"
               break
@@ -191,6 +191,7 @@ jobs:
             sleep 2
           done
 
+          docker logs agba-platform-ci || true
           echo "=== Docker Container /api/status Response ===" | tee -a "$GITHUB_STEP_SUMMARY"
           curl -fsS http://127.0.0.1:3000/api/status | tee -a "$GITHUB_STEP_SUMMARY"
           echo "" | tee -a "$GITHUB_STEP_SUMMARY"

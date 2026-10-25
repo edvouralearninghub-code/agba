@@ -8,7 +8,7 @@ COPY package.json .npmrc* ./
 RUN npm install --legacy-peer-deps
 
 COPY . .
-RUN npm run build
+RUN mkdir -p /app/data && npm run build
 
 FROM node:22-alpine AS runner
 
@@ -16,8 +16,9 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3000
 
+RUN mkdir -p /app/data
+
 COPY --from=builder /app/package.json ./package.json
-COPY --from=builder /app/.npmrc ./
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/public ./public
@@ -28,7 +29,6 @@ COPY --from=builder /app/src ./src
 COPY --from=builder /app/appwrite.json ./appwrite.json
 COPY --from=builder /app/firebase-applet-config.json ./firebase-applet-config.json
 COPY --from=builder /app/firestore.rules ./firestore.rules
-COPY --from=builder /app/data ./data
 
 EXPOSE 3000
 
