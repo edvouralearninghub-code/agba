@@ -1,5 +1,7 @@
+import 'dotenv/config';
 import fs from 'node:fs';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { FREE_STACK_ENTRIES } from '../src/data/freeStackData.ts';
 import { ACADEMY_TEMPLATES } from '../src/data/academyTemplates.ts';
 
@@ -631,7 +633,141 @@ async function main() {
   console.log('\n[COMPLETE] Appwrite 2.6.1 TablesDB (10 tables), Teams, and Storage bucket bootstrap finished.');
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+export async function runAppwriteCloudBootstrap(customParams?: {
+  endpoint?: string;
+  projectId?: string;
+  apiKey?: string;
+}): Promise<{
+  ok: boolean;
+  endpoint: string;
+  projectId: string;
+  tablesProvisioned: { id: string; status: number; ready: boolean }[];
+  bucketStatus: { id: string; status: number; ready: boolean }[];
+  message: string;
+}> {
+  const rootDir = process.cwd();
+  const manifestPath = path.join(rootDir, 'appwrite.json');
+  const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8')) as AppwriteManifest;
+
+  const endpoint =
+    customParams?.endpoint ||
+    process.env.APPWRITE_ENDPOINT ||
+    process.env.VITE_APPWRITE_ENDPOINT ||
+    'https://fra.cloud.appwrite.io/v1';
+  const projectId =
+    customParams?.projectId ||
+    process.env.APPWRITE_PROJECT_ID ||
+    process.env.VITE_APPWRITE_PROJECT_ID ||
+    manifest.projectId;
+  const apiKey = customParams?.apiKey || process.env.APPWRITE_API_KEY || '';
+
+  if (!apiKey || apiKey.startsWith('YOUR_')) {
+    return {
+      ok: false,
+      endpoint,
+      projectId,
+      tablesProvisioned: [],
+      bucketStatus: [],
+      message:
+        'APPWRITE_API_KEY is not set in environment. Add APPWRITE_API_KEY to Vercel / .env and click Bootstrap again.',
+    };
+  }
+
+  for (const db of manifest.databases) {
+    let res = await callAppwriteAdminApi(endpoint, projectId, apiKey, '/tablesdb', 'POST', {
+      databaseId: db.$id,
+      name: db.name,
+      enabled: db.enabled,
+    });
+    if (!res.ok) {
+      await callAppwriteAdminApi(endpoint, projectId, apiKey, '/databases', 'POST', {
+        databaseId: db.$id,
+        name: db.name,
+        enabled: db.enabled,
+      });
+    }
+  }
+
+  const tablesProvisioned: { id: string; status: number; ready: boolean }[] = [];
+  for (const table of manifest.tables) {
+    let tblRes = await callAppwriteAdminApi(
+      endpoint,
+      projectId,
+      apiKey,
+      `/tablesdb/${table.databaseId}/tables`,
+      'POST',
+      {
+        tableId: table.$id,
+        name: table.name,
+        permissions: [],
+        rowSecurity: table.rowSecurity,
+        enabled: true,
+      }
+    );
+    if (!tblRes.ok) {
+      tblRes = await callAppwriteAdminApi(
+        endpoint,
+        projectId,
+        apiKey,
+        `/databases/${table.databaseId}/collections`,
+        'POST',
+        {
+          collectionId: table.$id,
+          name: table.name,
+          permissions: [],
+          documentSecurity: table.rowSecurity,
+          enabled: true,
+        }
+      );
+    }
+    tablesProvisioned.push({
+      id: table.$id,
+      status: tblRes.status,
+      ready: tblRes.ok,
+    });
+  }
+
+  const bucketStatus: { id: string; status: number; ready: boolean }[] = [];
+  for (const bucket of manifest.buckets) {
+    const bRes = await callAppwriteAdminApi(endpoint, projectId, apiKey, '/storage/buckets', 'POST', {
+      bucketId: bucket.$id,
+      name: bucket.name,
+      permissions: [],
+      fileSecurity: bucket.fileSecurity,
+      enabled: true,
+      maximumFileSize: bucket.maximumFileSize,
+      allowedFileExtensions: bucket.allowedFileExtensions,
+      compression: 'gzip',
+      encryption: true,
+      antivirus: false,
+    });
+    bucketStatus.push({
+      id: bucket.$id,
+      status: bRes.status,
+      ready: bRes.ok,
+    });
+  }
+
+  const allReady =
+    tablesProvisioned.every((t) => t.ready) && bucketStatus.every((b) => b.ready);
+
+  return {
+    ok: allReady,
+    endpoint,
+    projectId,
+    tablesProvisioned,
+    bucketStatus,
+    message: allReady
+      ? `Provisioned all ${tablesProvisioned.length} TablesDB tables and ${bucketStatus.length} storage bucket on ${endpoint} (${projectId}).`
+      : `Completed bootstrap request against ${endpoint} (${projectId}) — check individual table statuses.`,
+  };
+}
+
+const isMainModule =
+  Boolean(process.argv[1]) &&
+  import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href;
+
+if (isMainModule) {
   main().catch((err) => {
     console.error('Bootstrap error:', err);
     process.exit(1);

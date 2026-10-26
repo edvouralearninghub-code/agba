@@ -33,6 +33,10 @@ import {
   generateLlmsTxt,
   generateSitemapXml,
 } from './src/lib/seoEngine.ts';
+import {
+  PGVECTOR_RLS_DDL_SQL,
+  runAppwriteCloudBootstrap,
+} from './scripts/bootstrap-appwrite.ts';
 import type { AllowedToolId, FreeStackCategory } from './src/types/agba.ts';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -481,6 +485,37 @@ app.get('/api/backend/overview', (req, res) => {
   } catch (err) {
     const status = err instanceof CrossTenantAccessError ? 403 : 400;
     res.status(status).json({ error: err instanceof Error ? err.message : 'Failed to load backend overview' });
+  }
+});
+
+// 1B. Cloud Appwrite 10-Table Bootstrap & Neon pgvector SQL Schema Helper
+app.get('/api/backend/pgvector-sql', (_req, res) => {
+  res.json({
+    regionRecommended: 'AWS Europe Central 1 (Frankfurt)',
+    sql: PGVECTOR_RLS_DDL_SQL,
+  });
+});
+
+app.post('/api/backend/cloud-bootstrap', async (req, res) => {
+  try {
+    const ctx = resolveServerTenantContext(req, 'ws_trendtactics_lagos');
+    if (ctx.role !== 'owner') {
+      throw new CrossTenantAccessError('Only workspace owners can bootstrap cloud tables.');
+    }
+    const result = await runAppwriteCloudBootstrap({
+      endpoint: req.body?.endpoint ? String(req.body.endpoint) : undefined,
+      projectId: req.body?.projectId ? String(req.body.projectId) : undefined,
+      apiKey: req.body?.apiKey ? String(req.body.apiKey) : undefined,
+    });
+    res.json({
+      ...result,
+      pgvectorSql: PGVECTOR_RLS_DDL_SQL,
+    });
+  } catch (err) {
+    const status = err instanceof CrossTenantAccessError ? 403 : 400;
+    res.status(status).json({
+      error: err instanceof Error ? err.message : 'Cloud bootstrap failed',
+    });
   }
 });
 

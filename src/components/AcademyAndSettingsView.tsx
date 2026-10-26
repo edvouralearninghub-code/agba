@@ -10,6 +10,9 @@ import {
   Server,
   Bell,
   Plus,
+  Copy,
+  Check,
+  Database,
 } from 'lucide-react';
 import { ACADEMY_TEMPLATES } from '../data/academyTemplates.ts';
 import type {
@@ -239,10 +242,15 @@ export const SettingsAndSecurityView: React.FC<SettingsAndSecurityViewProps> = (
   const [ssrfResult, setSsrfResult] = useState<{ allowed: boolean; message: string } | null>(null);
   const [crossTenantResult, setCrossTenantResult] = useState<string | null>(null);
 
+  const [pgvectorSql, setPgvectorSql] = useState<string>('');
+  const [copiedSql, setCopiedSql] = useState<boolean>(false);
+  const [bootstrappingCloud, setBootstrappingCloud] = useState<boolean>(false);
+  const [cloudBootstrapMsg, setCloudBootstrapMsg] = useState<string | null>(null);
+
   const loadBackendData = async () => {
     setLoadingAudit(true);
     try {
-      const [overviewRes, auditRes] = await Promise.all([
+      const [overviewRes, auditRes, sqlRes] = await Promise.all([
         fetch(`/api/backend/overview?workspace_id=${encodeURIComponent(activeWorkspace.id)}`, {
           headers: {
             'x-agba-workspace-id': activeWorkspace.id,
@@ -250,6 +258,7 @@ export const SettingsAndSecurityView: React.FC<SettingsAndSecurityViewProps> = (
           },
         }),
         fetch('/api/security/audit'),
+        fetch('/api/backend/pgvector-sql'),
       ]);
       if (overviewRes.ok) {
         setBackendOverview(await overviewRes.json());
@@ -257,8 +266,37 @@ export const SettingsAndSecurityView: React.FC<SettingsAndSecurityViewProps> = (
       if (auditRes.ok) {
         setAuditReport(await auditRes.json());
       }
+      if (sqlRes.ok) {
+        const sqlData = await sqlRes.json();
+        setPgvectorSql(sqlData.sql || '');
+      }
     } finally {
       setLoadingAudit(false);
+    }
+  };
+
+  const handleRunCloudBootstrap = async () => {
+    setBootstrappingCloud(true);
+    setCloudBootstrapMsg(null);
+    try {
+      const res = await fetch('/api/backend/cloud-bootstrap', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-agba-workspace-id': activeWorkspace.id,
+          'x-agba-role': activeWorkspace.memberRole,
+        },
+        body: JSON.stringify({}),
+      });
+      const data = await res.json();
+      setCloudBootstrapMsg(data.message || data.error || 'Bootstrap finished.');
+      if (data.pgvectorSql) {
+        setPgvectorSql(data.pgvectorSql);
+      }
+    } catch (err) {
+      setCloudBootstrapMsg(err instanceof Error ? err.message : 'Cloud bootstrap failed');
+    } finally {
+      setBootstrappingCloud(false);
     }
   };
 
@@ -555,6 +593,104 @@ export const SettingsAndSecurityView: React.FC<SettingsAndSecurityViewProps> = (
                 )}
               </div>
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Section 1B: Cloud Persistence Bootstrap (Appwrite Frankfurt 10 Tables + Neon pgvector SQL) */}
+      <section className="space-y-4 border-t border-current/10 pt-8">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2 text-sm font-semibold">
+            <Database className="h-4 w-4 text-[#D9A441]" />
+            <h2>Cloud Persistence Bootstrap (Appwrite Frankfurt + Neon pgvector)</h2>
+          </div>
+          <span className="font-mono text-xs text-[#2E8B57] dark:text-[#D9A441]">
+            Region: AWS Europe Central 1 (Frankfurt)
+          </span>
+        </div>
+
+        <div className="grid gap-6 lg:grid-cols-12">
+          <div
+            className={`flex flex-col justify-between rounded-xl border p-4 text-xs lg:col-span-5 ${
+              isDark ? 'border-white/10 bg-[#1B1F5E]/25' : 'border-[#0F1226]/10 bg-white'
+            }`}
+          >
+            <div>
+              <div className="font-semibold">
+                1. Bootstrap 10 Appwrite Cloud Tables &amp; Storage Bucket
+              </div>
+              <p className="mt-1 leading-relaxed opacity-80">
+                Provisions <span className="font-mono">agba_core</span> database, all 10{' '}
+                <span className="font-mono">TablesDB</span> collections (
+                <span className="font-mono">
+                  workspaces, studio_apps, free_stack_entries, byok_keys, rag_documents,
+                  webhook_ledger, usage_rollups, audit_logs, notifications, identity_links
+                </span>
+                ), and the <span className="font-mono">rag_files</span> bucket on Appwrite Cloud
+                Frankfurt.
+              </p>
+            </div>
+            <div className="mt-4 space-y-2">
+              <button
+                type="button"
+                disabled={bootstrappingCloud}
+                onClick={handleRunCloudBootstrap}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-[#D9A441] px-4 py-2 text-xs font-semibold text-[#0F1226] hover:bg-[#c89332] disabled:opacity-50"
+              >
+                <Server className="h-3.5 w-3.5" />
+                <span>
+                  {bootstrappingCloud
+                    ? 'Provisioning Frankfurt Tables…'
+                    : 'Bootstrap 10 Appwrite Tables Now'}
+                </span>
+              </button>
+              {cloudBootstrapMsg && (
+                <p className="font-mono text-[11px] text-[#2E8B57] dark:text-[#D9A441]">
+                  {cloudBootstrapMsg}
+                </p>
+              )}
+            </div>
+          </div>
+
+          <div
+            className={`rounded-xl border p-4 text-xs lg:col-span-7 ${
+              isDark ? 'border-white/10 bg-[#1B1F5E]/25' : 'border-[#0F1226]/10 bg-white'
+            }`}
+          >
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <div className="font-semibold">
+                  2. Neon.tech Serverless Postgres (`pgvector` + Row-Level Security SQL)
+                </div>
+                <p className="text-[11px] opacity-75">
+                  Copy this SQL and run it once in your Neon SQL Editor, then paste your Neon{' '}
+                  <span className="font-mono">DATABASE_URL</span> into Vercel Environment Variables.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  if (pgvectorSql) {
+                    navigator.clipboard.writeText(pgvectorSql);
+                    setCopiedSql(true);
+                    setTimeout(() => setCopiedSql(false), 2000);
+                  }
+                }}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-current/20 px-3 py-1.5 text-xs font-semibold hover:bg-current/5"
+              >
+                {copiedSql ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                <span>{copiedSql ? 'Copied SQL Script!' : 'Copy Neon pgvector SQL'}</span>
+              </button>
+            </div>
+            <pre
+              className={`max-h-36 overflow-y-auto rounded-lg border p-2.5 font-mono text-[10px] leading-relaxed ${
+                isDark
+                  ? 'border-white/10 bg-[#0E1030] text-[#FAF6EC]'
+                  : 'border-[#0F1226]/10 bg-[#FAF6EC] text-[#0F1226]'
+              }`}
+            >
+              {pgvectorSql || 'Loading pgvector RLS SQL schema...'}
+            </pre>
           </div>
         </div>
       </section>
