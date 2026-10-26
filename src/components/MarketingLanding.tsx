@@ -56,6 +56,7 @@ export const MarketingLanding: React.FC<MarketingLandingProps> = ({
   const [liveFreeStack, setLiveFreeStack] = useState<FreeStackEntry[]>(FREE_STACK_ENTRIES);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [mobileNavOpen, setMobileNavOpen] = useState<boolean>(false);
+  const [heroPrompt, setHeroPrompt] = useState<string>('');
 
   useEffect(() => {
     fetch('/api/cms/free-stack')
@@ -444,44 +445,100 @@ export const MarketingLanding: React.FC<MarketingLandingProps> = ({
             initial={{ opacity: 0, y: 18 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.55, ease: 'easeOut' }}
-            className="max-w-2xl"
+            className="max-w-3xl"
           >
             <p className="text-xs font-medium opacity-80">
-              Built in Lagos by Trendtactics Digital · AI Learning, Building &amp; Shipping Platform
+              Full-Stack AI App Builder &amp; Cloud Workspace · Built by Trendtactics Digital
             </p>
             <h1
-              className="font-display mt-3 text-[36px] leading-[1.1] font-bold tracking-tight sm:text-[46px] lg:text-[56px]"
+              className="font-display mt-3 text-[34px] leading-[1.1] font-bold tracking-tight sm:text-[44px] lg:text-[54px]"
               style={{ textWrap: 'balance' }}
             >
-              Build AI the wise way.
+              Create, train, and publish your AI assistant in 60 seconds.
             </h1>
-            <p className="mt-4 max-w-xl text-base leading-relaxed opacity-90 sm:text-lg">
-              Like the community <em>àgbà</em> who shows you the proven path, AGBA unites guided
-              agent templates, a visual RAG studio, and {liveFreeStack.length} always-free cloud
-              tools in one calm workspace.
+            <p className="mt-3 max-w-2xl text-sm leading-relaxed opacity-90 sm:text-base">
+              Upload your PDFs or docs, connect your Gemini/OpenAI/Claude key, test your AI workflow live, and ship a shareable chat link or REST API—all in one workspace.
             </p>
 
-            <div className="mt-7 flex flex-wrap items-center gap-3.5">
-              <button
-                type="button"
-                onClick={onEnterStudio}
-                className="inline-flex items-center gap-2 rounded-lg bg-[#D9A441] px-6 py-3 text-sm font-semibold text-[#0F1226] transition-colors duration-150 hover:bg-[#c89332] whitespace-nowrap shrink-0"
-              >
-                <span>Start building free</span>
-                <ArrowRight className="h-4 w-4" />
-              </button>
-              <button
-                type="button"
-                onClick={() => onEnterFreeStack({ category: 'All' })}
-                className={`inline-flex items-center gap-2 rounded-lg border px-6 py-3 text-sm font-semibold transition-colors duration-150 whitespace-nowrap shrink-0 ${
-                  isDark
-                    ? 'border-[#FAF6EC]/30 text-[#FAF6EC] hover:bg-white/5'
-                    : 'border-[#0F1226]/30 text-[#0F1226] hover:bg-[#0F1226]/5'
-                }`}
-              >
-                <span>Explore Free Stack ({liveFreeStack.length})</span>
-              </button>
-            </div>
+            {/* Interactive Action-First Prompt Launcher (Like Vercel v0 / Supabase / Dify) */}
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                const q = heroPrompt.trim().toLowerCase();
+                const matched =
+                  ACADEMY_TEMPLATES.find(
+                    (t) =>
+                      q &&
+                      (t.title.toLowerCase().includes(q) ||
+                        t.summary.toLowerCase().includes(q))
+                  ) || ACADEMY_TEMPLATES[0];
+                if (q && matched) {
+                  onOpenTemplateInStudio({
+                    ...matched,
+                    title: heroPrompt.trim().slice(0, 64),
+                  });
+                } else {
+                  onEnterStudio();
+                }
+              }}
+              className={`mt-6 rounded-2xl border p-2.5 shadow-lg backdrop-blur-md ${
+                isDark
+                  ? 'border-white/20 bg-[#1B1F5E]/80'
+                  : 'border-[#0F1226]/20 bg-white/95'
+              }`}
+            >
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <input
+                  type="text"
+                  value={heroPrompt}
+                  onChange={(e) => setHeroPrompt(e.target.value)}
+                  placeholder="What do you want to build? e.g. 'Customer support bot trained on my company PDF' or 'Website SEO auditor'..."
+                  className={`flex-1 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm focus:outline-none ${
+                    isDark
+                      ? 'bg-[#0E1030]/90 text-[#FAF6EC] placeholder:text-[#FAF6EC]/50'
+                      : 'bg-[#FAF6EC] text-[#0F1226] placeholder:text-[#0F1226]/50'
+                  }`}
+                />
+                <button
+                  type="submit"
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#D9A441] px-5 py-2.5 text-xs sm:text-sm font-semibold text-[#0F1226] transition-colors duration-150 hover:bg-[#c89332] whitespace-nowrap shrink-0"
+                >
+                  <span>Build &amp; Run App</span>
+                  <ArrowRight className="h-4 w-4" />
+                </button>
+              </div>
+
+              {/* 4 Instant 1-Click Task Starters */}
+              <div className="mt-2.5 flex flex-wrap items-center gap-1.5 px-1 text-[11px]">
+                <span className="opacity-65 mr-1">Or start with 1 click:</span>
+                {[
+                  { label: 'Chat with a PDF / Document', tplIdx: 0 },
+                  { label: 'Customer Support Triage Bot', tplIdx: 1 },
+                  { label: 'Financial & CSV Analyst', tplIdx: 2 },
+                  { label: 'Browse 225 Free Cloud Tools', isFreeStack: true },
+                ].map((quick) => (
+                  <button
+                    key={quick.label}
+                    type="button"
+                    onClick={() => {
+                      if (quick.isFreeStack) {
+                        onEnterFreeStack({ category: 'All' });
+                      } else {
+                        const tpl = ACADEMY_TEMPLATES[quick.tplIdx ?? 0] || ACADEMY_TEMPLATES[0];
+                        onOpenTemplateInStudio(tpl);
+                      }
+                    }}
+                    className={`rounded-lg border px-2.5 py-1 font-medium transition-colors ${
+                      isDark
+                        ? 'border-white/15 bg-[#0E1030]/60 hover:border-[#D9A441] hover:text-[#D9A441]'
+                        : 'border-[#0F1226]/15 bg-[#FAF6EC]/80 hover:border-[#3B3FA8] hover:text-[#3B3FA8]'
+                    }`}
+                  >
+                    {quick.label}
+                  </button>
+                ))}
+              </div>
+            </form>
           </motion.div>
 
           {/* Interactive 3-Step Journey Infographic Strip (Answers "How do I Learn, Build & Ship?") */}

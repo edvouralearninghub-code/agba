@@ -557,6 +557,59 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
         </div>
       </div>
 
+      {/* Interactive 3-Step User Action Bar (So any user immediately knows what to do) */}
+      <div
+        className={`flex flex-wrap items-center justify-between gap-2 border-b px-4 py-1.5 text-[11px] ${
+          isDark
+            ? 'border-white/10 bg-[#1B1F5E]/35 text-[#FAF6EC]'
+            : 'border-[#0F1226]/10 bg-[#3B3FA8]/5 text-[#0F1226]'
+        }`}
+      >
+        <div className="flex flex-wrap items-center gap-2 sm:gap-4">
+          <span className="font-semibold text-[#3B3FA8] dark:text-[#D9A441]">
+            Quick Start Guide:
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              setShowLeftDock(true);
+              setLeftTab('rag');
+              setMobilePane('palette');
+            }}
+            className="inline-flex items-center gap-1 font-medium underline-offset-2 hover:underline"
+          >
+            <span>1. Upload PDF / DOCX ({ragChunks.length} chunks)</span>
+          </button>
+          <span aria-hidden="true" className="opacity-40">
+            →
+          </span>
+          <button
+            type="button"
+            onClick={handleRunWorkflow}
+            className="inline-flex items-center gap-1 font-medium underline-offset-2 hover:underline"
+          >
+            <span>2. Type Question &amp; Click &ldquo;Run Workflow&rdquo;</span>
+          </button>
+          <span aria-hidden="true" className="opacity-40">
+            →
+          </span>
+          <button
+            type="button"
+            onClick={() => setShowPublishPanel((p) => !p)}
+            className="inline-flex items-center gap-1 font-medium underline-offset-2 hover:underline"
+          >
+            <span>3. Click &ldquo;Publish &amp; API&rdquo; to Share</span>
+          </button>
+        </div>
+        <button
+          type="button"
+          onClick={onOpenPublicChat}
+          className="font-semibold text-[#3B3FA8] hover:underline dark:text-[#D9A441]"
+        >
+          Open Live Chat View →
+        </button>
+      </div>
+
       {/* Publish Shareable Chat Page & REST Endpoint Drawer */}
       <AnimatePresence>
         {showPublishPanel && (

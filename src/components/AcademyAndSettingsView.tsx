@@ -247,6 +247,7 @@ export const SettingsAndSecurityView: React.FC<SettingsAndSecurityViewProps> = (
   const [bootstrappingCloud, setBootstrappingCloud] = useState<boolean>(false);
   const [cloudBootstrapMsg, setCloudBootstrapMsg] = useState<string | null>(null);
   const [bootstrapApiKey, setBootstrapApiKey] = useState<string>('');
+  const [showAdminDiagnostics, setShowAdminDiagnostics] = useState<boolean>(false);
 
   const loadBackendData = async () => {
     setLoadingAudit(true);
@@ -410,22 +411,35 @@ export const SettingsAndSecurityView: React.FC<SettingsAndSecurityViewProps> = (
 
   return (
     <div className="mx-auto max-w-[1200px] space-y-10 px-4 py-8 sm:px-6 lg:px-8">
-      {/* Header */}
+      {/* Header + Action-First User Guide (Like Supabase / Vercel Project Settings) */}
       <div className="border-b border-current/10 pb-6">
-        <div className="flex flex-wrap items-center gap-2 text-xs opacity-75">
-          <span>Workspace Settings &amp; Model Connections</span>
-          <span aria-hidden="true">·</span>
-          <span>{activeWorkspace.name}</span>
-          <span aria-hidden="true">·</span>
-          <span className="capitalize">Role: {activeWorkspace.memberRole}</span>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <div className="flex flex-wrap items-center gap-2 text-xs opacity-75">
+              <span>Workspace Settings</span>
+              <span aria-hidden="true">·</span>
+              <span>{activeWorkspace.name}</span>
+              <span aria-hidden="true">·</span>
+              <span className="capitalize">Role: {activeWorkspace.memberRole}</span>
+            </div>
+            <h1 className="font-display mt-2 text-2xl font-bold sm:text-3xl">
+              Connect AI Keys &amp; Manage Team Workspaces
+            </h1>
+            <p className="mt-1 max-w-2xl text-xs opacity-80">
+              Add your AI provider key in Step 1, create a workspace for your project in Step 2, and open Studio to build and publish your assistant.
+            </p>
+          </div>
+          {onNavigateModule && (
+            <button
+              type="button"
+              onClick={() => onNavigateModule('studio')}
+              className="inline-flex items-center gap-2 rounded-xl bg-[#D9A441] px-4 py-2.5 text-xs font-semibold text-[#0F1226] hover:bg-[#c89332] whitespace-nowrap shrink-0"
+            >
+              <span>Open AI Studio &amp; Build App</span>
+              <ArrowRight className="h-4 w-4" />
+            </button>
+          )}
         </div>
-        <h1 className="font-display mt-2 text-2xl font-bold sm:text-3xl">
-          Model Keys, Team Workspaces &amp; Platform Services
-        </h1>
-        <p className="mt-1 max-w-3xl text-xs opacity-80">
-          Manage your Bring-Your-Own-Key (BYOK) model connections, create isolated team workspaces,
-          and monitor your active open-source services.
-        </p>
       </div>
 
       {/* Section 1: BYOK Model Connections */}
@@ -542,75 +556,202 @@ export const SettingsAndSecurityView: React.FC<SettingsAndSecurityViewProps> = (
               </table>
             </div>
 
-            {/* Interactive Privacy & Safe Web Tool Verification */}
-            <div className="mt-6 grid gap-4 border-t border-current/10 pt-4 sm:grid-cols-2">
-              <div>
-                <div className="text-xs font-semibold">Workspace Data Privacy Check</div>
-                <p className="mt-1 text-[11px] opacity-75">
-                  Verify that documents uploaded to another workspace cannot be accessed from{' '}
-                  <span className="font-medium">{activeWorkspace.name}</span>.
-                </p>
-                <button
-                  type="button"
-                  onClick={handleSimulateCrossTenantAttempt}
-                  className="mt-2 rounded-lg border border-current/20 px-3 py-1.5 text-xs font-medium hover:bg-current/5"
-                >
-                  Test Workspace Isolation
-                </button>
-                {crossTenantResult && (
-                  <p className="mt-2 text-[11px] font-medium text-[#2E8B57] dark:text-[#D9A441]">
-                    {crossTenantResult}
-                  </p>
-                )}
-              </div>
+          </div>
+        </div>
+      </section>
 
-              <div>
-                <div className="text-xs font-semibold">Outbound Web Request Safety Check</div>
-                <form onSubmit={handleTestSsrf} className="mt-1.5 space-y-2">
-                  <input
-                    type="text"
-                    value={ssrfUrl}
-                    onChange={(e) => setSsrfUrl(e.target.value)}
-                    aria-label="URL to test"
-                    className={`w-full rounded border px-2.5 py-1 font-mono text-[11px] ${
-                      isDark
-                        ? 'border-white/15 bg-[#0E1030] text-[#FAF6EC]'
-                        : 'border-[#0F1226]/15 bg-[#FAF6EC] text-[#0F1226]'
-                    }`}
-                  />
-                  <button
-                    type="submit"
-                    className="rounded-lg border border-current/20 px-3 py-1 text-xs font-medium hover:bg-current/5"
-                  >
-                    Verify Endpoint Safety
-                  </button>
-                </form>
-                {ssrfResult && (
-                  <p
-                    className={`mt-1.5 text-[11px] ${
-                      ssrfResult.allowed ? 'text-[#2E8B57]' : 'text-[#C2413B]'
-                    }`}
-                  >
-                    {ssrfResult.message}
-                  </p>
-                )}
-              </div>
+      {/* Section 2: Team Workspaces & Recent Activity (Always visible for normal users) */}
+      <section className="space-y-4 border-t border-current/10 pt-8">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2 text-sm font-semibold">
+            <Server className="h-4 w-4 text-[#D9A441]" />
+            <h2>Step 2: Team Workspaces &amp; Project Activity</h2>
+          </div>
+          <span className="text-xs opacity-75">
+            Each workspace isolates its own AI keys, uploaded PDFs, and published apps
+          </span>
+        </div>
+
+        <div className="grid gap-6 lg:grid-cols-12">
+          <form
+            onSubmit={handleCreateWorkspace}
+            className={`rounded-xl border p-4 text-xs lg:col-span-5 ${
+              isDark ? 'border-white/10 bg-[#1B1F5E]/25' : 'border-[#0F1226]/10 bg-white'
+            }`}
+          >
+            <div className="font-semibold">Create New Team Workspace</div>
+            <p className="mt-1 opacity-75">
+              Provision a dedicated workspace for a new project, department, or agency client.
+            </p>
+            <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+              <input
+                type="text"
+                value={newWorkspaceName}
+                onChange={(e) => setNewWorkspaceName(e.target.value)}
+                placeholder="e.g. Eko Fintech Studio"
+                className={`flex-1 rounded-lg border px-3 py-2 ${
+                  isDark
+                    ? 'border-white/15 bg-[#0E1030] text-[#FAF6EC]'
+                    : 'border-[#0F1226]/15 bg-[#FAF6EC] text-[#0F1226]'
+                }`}
+              />
+              <select
+                value={newWorkspaceCurrency}
+                onChange={(e) => setNewWorkspaceCurrency(e.target.value as 'NGN' | 'USD')}
+                className={`rounded-lg border px-2.5 py-2 font-mono ${
+                  isDark
+                    ? 'border-white/15 bg-[#0E1030] text-[#FAF6EC]'
+                    : 'border-[#0F1226]/15 bg-[#FAF6EC] text-[#0F1226]'
+                }`}
+              >
+                <option value="NGN">NGN</option>
+                <option value="USD">USD</option>
+              </select>
+              <button
+                type="submit"
+                className="inline-flex items-center justify-center gap-1 rounded-lg bg-[#D9A441] px-3.5 py-2 font-semibold text-[#0F1226] hover:bg-[#c89332] whitespace-nowrap shrink-0"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Create
+              </button>
+            </div>
+            {workspaceNotice && (
+              <p className="mt-2 text-[11px] font-medium text-[#2E8B57] dark:text-[#D9A441]">
+                {workspaceNotice}
+              </p>
+            )}
+          </form>
+
+          <div
+            className={`rounded-xl border p-4 text-xs lg:col-span-7 ${
+              isDark ? 'border-white/10 bg-[#1B1F5E]/25' : 'border-[#0F1226]/10 bg-white'
+            }`}
+          >
+            <div className="mb-2 flex items-center justify-between">
+              <span className="inline-flex items-center gap-1.5 font-semibold">
+                <Bell className="h-3.5 w-3.5 text-[#D9A441]" />
+                Recent Workspace Notifications &amp; Activity
+              </span>
+              <span className="font-mono text-[11px] opacity-70">
+                {backendOverview ? backendOverview.notifications.length : 0} event(s)
+              </span>
+            </div>
+            <div className="max-h-36 space-y-2 overflow-y-auto pr-1">
+              {(backendOverview?.notifications || []).map((n) => (
+                <div
+                  key={n.id}
+                  className="rounded border border-current/10 p-2 text-[11px]"
+                >
+                  <div className="flex items-center justify-between font-semibold">
+                    <span>{n.title}</span>
+                    <span className="opacity-65 capitalize">{n.channel}</span>
+                  </div>
+                  <p className="mt-0.5 opacity-80">{n.body}</p>
+                </div>
+              ))}
             </div>
           </div>
         </div>
       </section>
 
-      {/* Section 1B: Cloud Persistence Bootstrap (Appwrite Frankfurt 10 Tables + Neon pgvector SQL) */}
-      <section className="space-y-4 border-t border-current/10 pt-8">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-2 text-sm font-semibold">
-            <Database className="h-4 w-4 text-[#D9A441]" />
-            <h2>Cloud Persistence Bootstrap (Appwrite Frankfurt + Neon pgvector)</h2>
+      {/* Collapsible Platform Admin & Cloud Infrastructure Drawer (Keeps normal user view clean like Vercel/Supabase) */}
+      <div className="border-t border-current/10 pt-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <div className="text-sm font-semibold">
+              Platform Admin &amp; Cloud Infrastructure Diagnostics
+            </div>
+            <p className="text-xs opacity-75">
+              Appwrite Cloud Frankfurt 10-table status, Neon pgvector SQL schema, integrated open-source engines, and security audit.
+            </p>
           </div>
-          <span className="font-mono text-xs text-[#2E8B57] dark:text-[#D9A441]">
-            Region: AWS Europe Central 1 (Frankfurt)
-          </span>
+          <button
+            type="button"
+            onClick={() => setShowAdminDiagnostics((v) => !v)}
+            className="inline-flex items-center gap-2 rounded-lg border border-current/20 px-4 py-2 text-xs font-semibold hover:bg-current/5"
+          >
+            <Server className="h-3.5 w-3.5 text-[#D9A441]" />
+            <span>
+              {showAdminDiagnostics
+                ? 'Hide Platform Admin & Infrastructure Tools'
+                : 'Show Platform Admin & Infrastructure Tools'}
+            </span>
+          </button>
         </div>
+      </div>
+
+      {showAdminDiagnostics && (
+        <div className="space-y-10">
+          {/* Interactive Privacy & Safe Web Tool Verification */}
+          <section
+            className={`grid gap-4 rounded-xl border p-4 sm:grid-cols-2 ${
+              isDark ? 'border-white/10 bg-[#1B1F5E]/25' : 'border-[#0F1226]/10 bg-white'
+            }`}
+          >
+            <div>
+              <div className="text-xs font-semibold">Workspace Data Privacy Check</div>
+              <p className="mt-1 text-[11px] opacity-75">
+                Verify that documents uploaded to another workspace cannot be accessed from{' '}
+                <span className="font-medium">{activeWorkspace.name}</span>.
+              </p>
+              <button
+                type="button"
+                onClick={handleSimulateCrossTenantAttempt}
+                className="mt-2 rounded-lg border border-current/20 px-3 py-1.5 text-xs font-medium hover:bg-current/5"
+              >
+                Test Workspace Isolation
+              </button>
+              {crossTenantResult && (
+                <p className="mt-2 text-[11px] font-medium text-[#2E8B57] dark:text-[#D9A441]">
+                  {crossTenantResult}
+                </p>
+              )}
+            </div>
+
+            <div>
+              <div className="text-xs font-semibold">Outbound Web Request Safety Check</div>
+              <form onSubmit={handleTestSsrf} className="mt-1.5 space-y-2">
+                <input
+                  type="text"
+                  value={ssrfUrl}
+                  onChange={(e) => setSsrfUrl(e.target.value)}
+                  aria-label="URL to test"
+                  className={`w-full rounded border px-2.5 py-1 font-mono text-[11px] ${
+                    isDark
+                      ? 'border-white/15 bg-[#0E1030] text-[#FAF6EC]'
+                      : 'border-[#0F1226]/15 bg-[#FAF6EC] text-[#0F1226]'
+                  }`}
+                />
+                <button
+                  type="submit"
+                  className="rounded-lg border border-current/20 px-3 py-1 text-xs font-medium hover:bg-current/5"
+                >
+                  Verify Endpoint Safety
+                </button>
+              </form>
+              {ssrfResult && (
+                <p
+                  className={`mt-1.5 text-[11px] ${
+                    ssrfResult.allowed ? 'text-[#2E8B57]' : 'text-[#C2413B]'
+                  }`}
+                >
+                  {ssrfResult.message}
+                </p>
+              )}
+            </div>
+          </section>
+
+          {/* Section 1B: Cloud Persistence Bootstrap (Appwrite Frankfurt 10 Tables + Neon pgvector SQL) */}
+          <section className="space-y-4 border-t border-current/10 pt-8">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2 text-sm font-semibold">
+                <Database className="h-4 w-4 text-[#D9A441]" />
+                <h2>Cloud Persistence Bootstrap (Appwrite Frankfurt + Neon pgvector)</h2>
+              </div>
+              <span className="font-mono text-xs text-[#2E8B57] dark:text-[#D9A441]">
+                Region: AWS Europe Central 1 (Frankfurt) · 10/10 Tables Ready
+              </span>
+            </div>
 
         <div className="grid gap-6 lg:grid-cols-12">
           <div
@@ -714,98 +855,17 @@ export const SettingsAndSecurityView: React.FC<SettingsAndSecurityViewProps> = (
         </div>
       </section>
 
-      {/* Section 2: Team Workspaces & Active Open-Source Services */}
+      {/* Section 2B: Integrated Open-Source Engines (Inside Admin Drawer) */}
       {backendOverview && (
         <section className="space-y-4 border-t border-current/10 pt-8">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2 text-sm font-semibold">
               <Server className="h-4 w-4 text-[#D9A441]" />
-              <h2>Team Workspaces &amp; Integrated Open-Source Services</h2>
+              <h2>Integrated Open-Source Engines</h2>
             </div>
             <span className="text-xs font-medium text-[#2E8B57] dark:text-[#D9A441]">
               Self-Hosted Ready · Zero External Cloud Fees Required
             </span>
-          </div>
-
-          <div className="grid gap-6 lg:grid-cols-12">
-            <form
-              onSubmit={handleCreateWorkspace}
-              className={`rounded-xl border p-4 text-xs lg:col-span-5 ${
-                isDark ? 'border-white/10 bg-[#1B1F5E]/25' : 'border-[#0F1226]/10 bg-white'
-              }`}
-            >
-              <div className="font-semibold">Create New Team Workspace</div>
-              <p className="mt-1 opacity-75">
-                Provision a dedicated workspace for a new project, department, or agency client.
-              </p>
-              <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-                <input
-                  type="text"
-                  value={newWorkspaceName}
-                  onChange={(e) => setNewWorkspaceName(e.target.value)}
-                  placeholder="e.g. Eko Fintech Studio"
-                  className={`flex-1 rounded-lg border px-3 py-2 ${
-                    isDark
-                      ? 'border-white/15 bg-[#0E1030] text-[#FAF6EC]'
-                      : 'border-[#0F1226]/15 bg-[#FAF6EC] text-[#0F1226]'
-                  }`}
-                />
-                <select
-                  value={newWorkspaceCurrency}
-                  onChange={(e) => setNewWorkspaceCurrency(e.target.value as 'NGN' | 'USD')}
-                  className={`rounded-lg border px-2.5 py-2 font-mono ${
-                    isDark
-                      ? 'border-white/15 bg-[#0E1030] text-[#FAF6EC]'
-                      : 'border-[#0F1226]/15 bg-[#FAF6EC] text-[#0F1226]'
-                  }`}
-                >
-                  <option value="NGN">NGN</option>
-                  <option value="USD">USD</option>
-                </select>
-                <button
-                  type="submit"
-                  className="inline-flex items-center justify-center gap-1 rounded-lg bg-[#D9A441] px-3.5 py-2 font-semibold text-[#0F1226] hover:bg-[#c89332] whitespace-nowrap shrink-0"
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                  Create
-                </button>
-              </div>
-              {workspaceNotice && (
-                <p className="mt-2 text-[11px] font-medium text-[#2E8B57] dark:text-[#D9A441]">
-                  {workspaceNotice}
-                </p>
-              )}
-            </form>
-
-            <div
-              className={`rounded-xl border p-4 text-xs lg:col-span-7 ${
-                isDark ? 'border-white/10 bg-[#1B1F5E]/25' : 'border-[#0F1226]/10 bg-white'
-              }`}
-            >
-              <div className="mb-2 flex items-center justify-between">
-                <span className="inline-flex items-center gap-1.5 font-semibold">
-                  <Bell className="h-3.5 w-3.5 text-[#D9A441]" />
-                  Recent Workspace Notifications &amp; Activity
-                </span>
-                <span className="font-mono text-[11px] opacity-70">
-                  {backendOverview.notifications.length} event(s)
-                </span>
-              </div>
-              <div className="max-h-36 space-y-2 overflow-y-auto pr-1">
-                {backendOverview.notifications.map((n) => (
-                  <div
-                    key={n.id}
-                    className="rounded border border-current/10 p-2 text-[11px]"
-                  >
-                    <div className="flex items-center justify-between font-semibold">
-                      <span>{n.title}</span>
-                      <span className="opacity-65 capitalize">{n.channel}</span>
-                    </div>
-                    <p className="mt-0.5 opacity-80">{n.body}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
           </div>
 
           <div
@@ -935,6 +995,8 @@ export const SettingsAndSecurityView: React.FC<SettingsAndSecurityViewProps> = (
           </div>
         )}
       </section>
+        </div>
+      )}
     </div>
   );
 };
