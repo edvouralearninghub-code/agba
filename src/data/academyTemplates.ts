@@ -704,11 +704,22 @@ export const ACADEMY_TEMPLATES: AcademyTemplate[] = [
         config: {},
       },
       {
+        id: 'n-notify',
+        kind: 'agent_tool',
+        title: 'Team Notification & Alert Service',
+        subtitle: 'Dispatches digest via Novu & webhook',
+        x: 320,
+        y: 120,
+        config: {
+          toolId: 'send_email_novu',
+        },
+      },
+      {
         id: 'n-llm',
         kind: 'llm_generator',
         title: 'ChatOps & Playbook Formatter',
         subtitle: 'Formats Mattermost & Plausible digest',
-        x: 450,
+        x: 600,
         y: 120,
         config: {
           provider: 'gemini',
@@ -723,15 +734,77 @@ export const ACADEMY_TEMPLATES: AcademyTemplate[] = [
         kind: 'output_response',
         title: 'Mattermost Channel Payload',
         subtitle: 'Webhook-ready markdown',
-        x: 850,
+        x: 880,
         y: 120,
         config: {},
       },
     ],
     edges: [
-      { id: 'e1', source: 'n-trigger', target: 'n-llm', label: 'metrics' },
-      { id: 'e2', source: 'n-llm', target: 'n-out', label: 'channel post' },
+      { id: 'e1', source: 'n-trigger', target: 'n-notify', label: 'trigger alert' },
+      { id: 'e2', source: 'n-notify', target: 'n-llm', label: 'metrics' },
+      { id: 'e3', source: 'n-llm', target: 'n-out', label: 'channel post' },
     ],
   },
 ];
+
+export interface StudioServiceRepresentation {
+  id: string;
+  shortLabel: string;
+  serviceTitle: string;
+  tagline: string;
+  templateId: string;
+  focusNodeKind: 'rag_retriever' | 'llm_generator' | 'agent_tool' | 'output_response';
+}
+
+export const STUDIO_SERVICE_REPRESENTATIONS: StudioServiceRepresentation[] = [
+  {
+    id: 'svc-rag',
+    shortLabel: 'Knowledge Base',
+    serviceTitle: 'Knowledge Base Studio (RAG & Citations)',
+    tagline: 'Upload PDFs, Word docs, or notes and answer questions with verified file citations.',
+    templateId: 'tpl-rag-policy-guide',
+    focusNodeKind: 'rag_retriever',
+  },
+  {
+    id: 'svc-llm',
+    shortLabel: 'AI Model & Prompt',
+    serviceTitle: 'AI Model & Prompt Studio',
+    tagline: 'Configure Gemini, OpenAI, Claude, Mistral, or Ollama system instructions and tone.',
+    templateId: 'tpl-social-campaign-drafter',
+    focusNodeKind: 'llm_generator',
+  },
+  {
+    id: 'svc-calc',
+    shortLabel: 'Finance & Calculator',
+    serviceTitle: 'Finance & Unit Economics Studio',
+    tagline: 'Run deterministic NGN/USD margin, runway, and kobo/cents unit economics calculations.',
+    templateId: 'tpl-financial-coach',
+    focusNodeKind: 'agent_tool',
+  },
+  {
+    id: 'svc-http',
+    shortLabel: 'External API & Webhooks',
+    serviceTitle: 'External API & Webhook Studio',
+    tagline: 'Connect safely to Paystack or external HTTPS webhooks with built-in SSRF protection.',
+    templateId: 'tpl-api-webhook-agent',
+    focusNodeKind: 'agent_tool',
+  },
+  {
+    id: 'svc-search',
+    shortLabel: 'Web Search & SEO',
+    serviceTitle: 'Web Search & SEO Audit Studio',
+    tagline: 'Audit pages for Technical SEO, Schema.org JSON-LD, and live web research.',
+    templateId: 'tpl-claude-seo-auditor',
+    focusNodeKind: 'agent_tool',
+  },
+  {
+    id: 'svc-notify',
+    shortLabel: 'Email & Alerts',
+    serviceTitle: 'Notifications & ChatOps Studio',
+    tagline: 'Dispatch automated email digests and Mattermost team alerts via Novu.',
+    templateId: 'tpl-mattermost-ops',
+    focusNodeKind: 'agent_tool',
+  },
+];
+
 

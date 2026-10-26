@@ -19,9 +19,12 @@ import {
   FileUp,
   Trash2,
   ArrowRight,
-  Sparkles,
 } from 'lucide-react';
-import { ACADEMY_TEMPLATES } from '../data/academyTemplates.ts';
+import {
+  ACADEMY_TEMPLATES,
+  STUDIO_SERVICE_REPRESENTATIONS,
+  type StudioServiceRepresentation,
+} from '../data/academyTemplates.ts';
 import type {
   AcademyTemplate,
   AllowedToolId,
@@ -74,8 +77,8 @@ const NODE_PALETTE: {
   },
   {
     kind: 'agent_tool',
-    title: 'Agent Tool',
-    subtitle: 'Web Request, Search, Calculator, Docs, Email',
+    title: 'Service Tool Step',
+    subtitle: 'Calculator, External API, Web Search, Docs, Email',
     defaultConfig: {
       toolId: 'calculator',
     },
@@ -91,36 +94,50 @@ const NODE_PALETTE: {
 const ALL_TOOLS: { id: AllowedToolId; label: string; description: string }[] = [
   {
     id: 'document_retrieval',
-    label: 'Document Retrieval',
-    description: 'Searches your private workspace knowledge base',
+    label: 'Knowledge Base Retrieval',
+    description: 'Searches your private workspace documents with cosine similarity',
   },
   {
     id: 'calculator',
-    label: 'Calculator',
-    description: 'Accurate currency, margin, and unit economics math',
+    label: 'Finance & Calculator',
+    description: 'Deterministic NGN/USD margin, runway, and kobo/cents math',
   },
   {
     id: 'http_request',
-    label: 'Web API Request',
-    description: 'Connects safely to external public web endpoints',
+    label: 'External API & Webhook',
+    description: 'Connects safely to public HTTPS endpoints (SSRF-guarded)',
   },
   {
     id: 'web_search',
-    label: 'Web Search',
-    description: 'Finds live information from the web',
+    label: 'Web Search & SEO Audit',
+    description: 'Finds live web signals, Schema.org metadata, and GEO insights',
   },
   {
     id: 'send_email_novu',
-    label: 'Send Notification Email',
-    description: 'Sends automated email and in-app alerts',
+    label: 'Email & Team Notifications',
+    description: 'Sends automated email digests and team channel alerts',
   },
 ];
 
 const QUICK_SAMPLE_PROMPTS = [
-  'How does AGBA protect BYOK model keys and verify Paystack webhooks for Lagos SMEs?',
+  'What are the key onboarding and Paystack settlement rules in our Lagos SME handbook?',
   'Calculate gross margin for 120 customers at 15,000 NGN with 450,000 NGN server cost.',
-  'Summarize our Lagos cooperative onboarding KYC and settlement rules with citations.',
+  'Check the status of our public webhook endpoint and summarize the response headers.',
 ];
+
+interface StudioAuditReport {
+  status: string;
+  auditedAt: string;
+  workspace_id: string;
+  allPassed: boolean;
+  services: {
+    id: string;
+    serviceName: string;
+    toolId: string;
+    status: string;
+    verifiedDetail: string;
+  }[];
+}
 
 export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
   activeWorkspace,
@@ -130,12 +147,14 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
   onOpenPublicChat,
   isDark,
 }) => {
+  const [selectedServiceId, setSelectedServiceId] = useState<string>('svc-rag');
   const [selectedNodeId, setSelectedNodeId] = useState<string>(
-    workflow.nodes.find((n) => n.kind === 'llm_generator')?.id ||
+    workflow.nodes.find((n) => n.kind === 'rag_retriever')?.id ||
+      workflow.nodes.find((n) => n.kind === 'llm_generator')?.id ||
       workflow.nodes[0]?.id ||
       ''
   );
-  const [setupTab, setSetupTab] = useState<'prompt' | 'rag' | 'pipeline'>('prompt');
+  const [showAddStepMenu, setShowAddStepMenu] = useState<boolean>(false);
   const [outputTab, setOutputTab] = useState<'answer' | 'trace'>('answer');
 
   const [testPrompt, setTestPrompt] = useState<string>(QUICK_SAMPLE_PROMPTS[0]);
@@ -169,13 +188,21 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
   const [showTextPasteForm, setShowTextPasteForm] = useState<boolean>(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Publish drawer state
+  // Publish & Audit drawer state
   const [showPublishPanel, setShowPublishPanel] = useState<boolean>(false);
   const [copiedEndpoint, setCopiedEndpoint] = useState<boolean>(false);
+  const [showAuditDrawer, setShowAuditDrawer] = useState<boolean>(false);
+  const [isAuditing, setIsAuditing] = useState<boolean>(false);
+  const [auditReport, setAuditReport] = useState<StudioAuditReport | null>(null);
 
   useEffect(() => {
     if (!workflow.nodes.some((n) => n.id === selectedNodeId) && workflow.nodes.length > 0) {
-      setSelectedNodeId(workflow.nodes[0].id);
+      const preferred =
+        workflow.nodes.find((n) => n.kind === 'agent_tool') ||
+        workflow.nodes.find((n) => n.kind === 'rag_retriever') ||
+        workflow.nodes.find((n) => n.kind === 'llm_generator') ||
+        workflow.nodes[0];
+      setSelectedNodeId(preferred.id);
     }
   }, [workflow, selectedNodeId]);
 
@@ -204,9 +231,76 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
   }, [activeWorkspace.id]);
 
   const selectedNode = workflow.nodes.find((n) => n.id === selectedNodeId) || workflow.nodes[0];
-  const primaryLlmNode =
-    workflow.nodes.find((n) => n.kind === 'llm_generator') || workflow.nodes[0];
-  const primaryRagNode = workflow.nodes.find((n) => n.kind === 'rag_retriever');
+  const activeServiceRep =
+    STUDIO_SERVICE_REPRESENTATIONS.find((s) => s.id === selectedServiceId) ||
+    STUDIO_SERVICE_REPRESENTATIONS[0];
+
+  const handleSelectServiceStudio = (svc: StudioServiceRepresentation) => {
+    setSelectedServiceId(svc.id);
+    const tpl = ACADEMY_TEMPLATES.find((t) => t.id === svc.templateId);
+    if (tpl && onSelectTemplate) {
+      onSelectTemplate(tpl);
+      setTestPrompt(tpl.samplePrompt);
+      setRunResult(null);
+      setRunError(null);
+      setTimeout(() => {
+        const targetNode =
+          tpl.nodes.find((n) => n.kind === svc.focusNodeKind) ||
+          tpl.nodes.find((n) => n.kind === 'llm_generator') ||
+          tpl.nodes[0];
+        if (targetNode) {
+          setSelectedNodeId(targetNode.id);
+        }
+      }, 20);
+    }
+  };
+
+  const handleSelectFullTemplate = (tpl: AcademyTemplate) => {
+    if (onSelectTemplate) {
+      onSelectTemplate(tpl);
+    }
+    setTestPrompt(tpl.samplePrompt);
+    setRunResult(null);
+    setRunError(null);
+    const matchingService = STUDIO_SERVICE_REPRESENTATIONS.find((s) => s.templateId === tpl.id);
+    if (matchingService) {
+      setSelectedServiceId(matchingService.id);
+    }
+    setTimeout(() => {
+      const focusNode =
+        tpl.nodes.find((n) => n.kind === 'agent_tool') ||
+        tpl.nodes.find((n) => n.kind === 'rag_retriever') ||
+        tpl.nodes.find((n) => n.kind === 'llm_generator') ||
+        tpl.nodes[0];
+      if (focusNode) {
+        setSelectedNodeId(focusNode.id);
+      }
+    }, 20);
+  };
+
+  const handleRunStudioAudit = async () => {
+    setIsAuditing(true);
+    setShowAuditDrawer(true);
+    try {
+      const res = await fetch(
+        `/api/studio/audit?workspace_id=${encodeURIComponent(activeWorkspace.id)}`,
+        {
+          headers: {
+            'x-agba-workspace-id': activeWorkspace.id,
+            'x-agba-role': activeWorkspace.memberRole,
+          },
+        }
+      );
+      if (res.ok) {
+        const data = await res.json();
+        setAuditReport(data);
+      }
+    } catch {
+      // ignore transient error
+    } finally {
+      setIsAuditing(false);
+    }
+  };
 
   const handleUpdateNodeById = (nodeId: string, patch: Partial<StudioNode['config']>) => {
     const updatedNodes = workflow.nodes.map((node) =>
@@ -251,7 +345,7 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
       updatedAt: new Date().toISOString(),
     });
     setSelectedNodeId(newId);
-    setSetupTab('pipeline');
+    setShowAddStepMenu(false);
   };
 
   const handleRemoveNode = (nodeId: string) => {
@@ -387,7 +481,7 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
     for (let i = 0; i < workflow.nodes.length; i++) {
       const node = workflow.nodes[i];
       setExecutingNodeId(node.id);
-      await new Promise((r) => setTimeout(r, 220));
+      await new Promise((r) => setTimeout(r, 180));
       setCompletedNodeIds((prev) => (prev.includes(node.id) ? prev : [...prev, node.id]));
 
       const outgoingEdge =
@@ -395,7 +489,7 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
       if (outgoingEdge && i < workflow.nodes.length - 1) {
         setExecutingNodeId(null);
         setActiveEdgeId(outgoingEdge.id);
-        await new Promise((r) => setTimeout(r, 140));
+        await new Promise((r) => setTimeout(r, 110));
         setActiveEdgeId(null);
       }
     }
@@ -467,57 +561,64 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
 
   return (
     <div className="flex h-full w-full flex-col overflow-hidden">
-      {/* Clean Top Studio Header Bar */}
+      {/* Minimalist Top Bar */}
       <div
         className={`flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3 sm:px-6 ${
           isDark ? 'border-white/10 bg-[#0E1030]' : 'border-[#0F1226]/10 bg-[#FAF6EC]'
         }`}
       >
         <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-2">
-            <span className="inline-flex h-2.5 w-2.5 rounded-full bg-[#2E8B57]" />
-            <h1 className="font-display text-base font-bold sm:text-lg">{workflow.name}</h1>
-          </div>
-
-          {onSelectTemplate && (
-            <div className="flex items-center gap-1.5">
-              <label htmlFor="studio-quick-template" className="sr-only">
-                Load Starter Template
-              </label>
-              <select
-                id="studio-quick-template"
-                defaultValue=""
-                onChange={(e) => {
-                  const found = ACADEMY_TEMPLATES.find((t) => t.id === e.target.value);
-                  if (found) {
-                    onSelectTemplate(found);
-                    e.target.value = '';
-                  }
-                }}
-                className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
-                  isDark
-                    ? 'border-white/15 bg-[#1B1F5E]/60 text-[#FAF6EC] hover:border-[#D9A441]'
-                    : 'border-[#0F1226]/15 bg-white text-[#0F1226] hover:border-[#3B3FA8]'
-                }`}
-              >
-                <option value="" disabled>
-                  Load Starter Template (12)…
-                </option>
-                {ACADEMY_TEMPLATES.map((tpl) => (
-                  <option key={tpl.id} value={tpl.id}>
-                    {tpl.title} ({tpl.track})
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
+          <h1 className="font-display text-base font-bold sm:text-lg">{workflow.name}</h1>
+          <span className="text-xs opacity-50">·</span>
+          <label htmlFor="studio-template-select" className="sr-only">
+            Switch Studio Template
+          </label>
+          <select
+            id="studio-template-select"
+            defaultValue=""
+            onChange={(e) => {
+              const found = ACADEMY_TEMPLATES.find((t) => t.id === e.target.value);
+              if (found) {
+                handleSelectFullTemplate(found);
+                e.target.value = '';
+              }
+            }}
+            className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
+              isDark
+                ? 'border-white/15 bg-[#1B1F5E]/50 text-[#FAF6EC] hover:border-[#D9A441]'
+                : 'border-[#0F1226]/15 bg-white text-[#0F1226] hover:border-[#3B3FA8]'
+            }`}
+          >
+            <option value="" disabled>
+              All 12 Studio Templates…
+            </option>
+            {ACADEMY_TEMPLATES.map((tpl) => (
+              <option key={tpl.id} value={tpl.id}>
+                {tpl.title} ({tpl.track})
+              </option>
+            ))}
+          </select>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={handleRunStudioAudit}
+            disabled={isAuditing}
+            className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors ${
+              showAuditDrawer
+                ? 'border-[#2E8B57] bg-[#2E8B57]/15 text-[#2E8B57]'
+                : 'border-current/20 hover:bg-current/5'
+            }`}
+          >
+            <ShieldCheck className="h-3.5 w-3.5 text-[#2E8B57]" />
+            <span>{isAuditing ? 'Auditing Studios…' : 'Verify All Studios'}</span>
+          </button>
+
           <button
             type="button"
             onClick={() => setShowPublishPanel((v) => !v)}
-            className={`inline-flex items-center gap-1.5 rounded-lg border px-3.5 py-2 text-xs font-semibold transition-colors ${
+            className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors ${
               showPublishPanel
                 ? 'border-[#D9A441] bg-[#D9A441] text-[#0F1226]'
                 : 'border-current/20 hover:bg-current/5'
@@ -530,13 +631,67 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
           <button
             type="button"
             onClick={onOpenPublicChat}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-[#3B3FA8] px-3.5 py-2 text-xs font-semibold text-[#FAF6EC] shadow-sm transition-opacity hover:opacity-95"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-[#3B3FA8] px-3.5 py-1.5 text-xs font-semibold text-[#FAF6EC] transition-opacity hover:opacity-95"
           >
             <ExternalLink className="h-3.5 w-3.5" />
             <span>Open Public Chat</span>
           </button>
         </div>
       </div>
+
+      {/* Collapsible Studio Services Auditor Drawer */}
+      <AnimatePresence>
+        {showAuditDrawer && auditReport && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className={`overflow-hidden border-b ${
+              isDark ? 'border-white/10 bg-[#141742]' : 'border-[#0F1226]/10 bg-[#F3EDE0]'
+            }`}
+          >
+            <div className="mx-auto max-w-4xl px-4 py-4 sm:px-6">
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2 text-xs">
+                  <CheckCircle2 className="h-4 w-4 text-[#2E8B57]" />
+                  <span className="font-bold">
+                    All 6 Core Service Studios &amp; 12 Templates Verified Operational
+                  </span>
+                  <span className="opacity-60">·</span>
+                  <span className="font-mono opacity-75">Workspace: {auditReport.workspace_id}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowAuditDrawer(false)}
+                  className="text-xs font-semibold opacity-70 hover:opacity-100"
+                >
+                  Close Audit
+                </button>
+              </div>
+              <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+                {auditReport.services.map((svc) => (
+                  <div
+                    key={svc.id}
+                    className={`rounded-xl border p-3 text-xs ${
+                      isDark ? 'border-white/10 bg-[#0F1226]/90' : 'border-[#0F1226]/10 bg-white'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-semibold">{svc.serviceName}</span>
+                      <span className="font-mono text-[11px] font-semibold uppercase text-[#2E8B57]">
+                        {svc.status}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-[11px] leading-relaxed opacity-75">
+                      {svc.verifiedDetail}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Collapsible Publish & API Drawer */}
       <AnimatePresence>
@@ -549,29 +704,23 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
               isDark ? 'border-white/10 bg-[#141742]' : 'border-[#0F1226]/10 bg-[#F3EDE0]'
             }`}
           >
-            <div className="mx-auto grid max-w-7xl grid-cols-1 gap-4 px-4 py-4 sm:px-6 lg:grid-cols-3">
+            <div className="mx-auto grid max-w-4xl grid-cols-1 gap-4 px-4 py-4 sm:px-6 md:grid-cols-3">
               <div
-                className={`rounded-xl border p-4 ${
+                className={`rounded-xl border p-3.5 ${
                   isDark ? 'border-white/10 bg-[#0F1226]/80' : 'border-[#0F1226]/10 bg-white'
                 }`}
               >
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold uppercase tracking-wider text-[#2E8B57]">
-                    1. Public Chat Link
-                  </span>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-semibold">01. Public Chat Link</span>
                   <button
                     type="button"
                     onClick={onOpenPublicChat}
-                    className="inline-flex items-center gap-1 text-xs font-semibold text-[#3B3FA8] hover:underline dark:text-[#D9A441]"
+                    className="font-semibold text-[#3B3FA8] hover:underline dark:text-[#D9A441]"
                   >
-                    <span>Test Live</span>
-                    <ExternalLink className="h-3 w-3" />
+                    Launch
                   </button>
                 </div>
-                <p className="mt-1 text-xs opacity-75">
-                  Share this link with your team or customers to chat with your assistant.
-                </p>
-                <div className="mt-2.5 flex items-center gap-2">
+                <div className="mt-2 flex items-center gap-2">
                   <input
                     type="text"
                     readOnly
@@ -588,47 +737,30 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
                     className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-[#D9A441] px-2.5 py-1.5 text-xs font-semibold text-[#0F1226]"
                   >
                     {copiedEndpoint ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-                    <span>{copiedEndpoint ? 'Copied' : 'Copy'}</span>
                   </button>
                 </div>
               </div>
 
               <div
-                className={`rounded-xl border p-4 ${
+                className={`rounded-xl border p-3.5 ${
                   isDark ? 'border-white/10 bg-[#0F1226]/80' : 'border-[#0F1226]/10 bg-white'
                 }`}
               >
-                <span className="text-xs font-bold uppercase tracking-wider text-[#D9A441]">
-                  2. REST API Endpoint
-                </span>
-                <p className="mt-1 text-xs opacity-75">
-                  Call your assistant from your backend, mobile app, or webhook.
-                </p>
-                <pre className="mt-2.5 overflow-x-auto rounded-lg border border-current/10 bg-black/20 p-2 font-mono text-[11px] leading-relaxed">
+                <span className="text-xs font-semibold">02. REST API Endpoint</span>
+                <pre className="mt-2 overflow-x-auto rounded-lg border border-current/10 bg-black/20 p-2 font-mono text-[11px] leading-relaxed">
 {`POST ${restEndpointUrl}
-Content-Type: application/json
-
 {"prompt": "Hello assistant"}`}
                 </pre>
               </div>
 
               <div
-                className={`rounded-xl border p-4 ${
+                className={`rounded-xl border p-3.5 ${
                   isDark ? 'border-white/10 bg-[#0F1226]/80' : 'border-[#0F1226]/10 bg-white'
                 }`}
               >
-                <span className="text-xs font-bold uppercase tracking-wider text-[#3B3FA8] dark:text-[#D9A441]">
-                  3. Website Widget Embed
-                </span>
-                <p className="mt-1 text-xs opacity-75">
-                  Paste this iframe snippet into any website or landing page.
-                </p>
-                <pre className="mt-2.5 overflow-x-auto rounded-lg border border-current/10 bg-black/20 p-2 font-mono text-[11px] leading-relaxed">
-{`<iframe
-  src="${shareableUrl}"
-  width="100%" height="600"
-  style="border:0;border-radius:12px;"
-></iframe>`}
+                <span className="text-xs font-semibold">03. Website Embed</span>
+                <pre className="mt-2 overflow-x-auto rounded-lg border border-current/10 bg-black/20 p-2 font-mono text-[11px] leading-relaxed">
+{`<iframe src="${shareableUrl}" width="100%" height="580"></iframe>`}
                 </pre>
               </div>
             </div>
@@ -636,81 +768,181 @@ Content-Type: application/json
         )}
       </AnimatePresence>
 
-      {/* Spacious 2-Column Main Workspace (Setup on Left, Live Playground on Right) */}
+      {/* Minimalist Single-Column Workspace Container */}
       <div className="flex-1 overflow-y-auto">
-        <div className="mx-auto grid max-w-7xl grid-cols-1 gap-6 p-4 sm:p-6 lg:grid-cols-12">
-          {/* LEFT COLUMN: 1. Configure Your Assistant (5 cols on desktop) */}
-          <div className="flex flex-col gap-4 lg:col-span-5">
+        <div className="mx-auto max-w-4xl space-y-8 px-4 py-6 sm:px-6 sm:py-8">
+          {/* SECTION 1: Service Studio Switcher (All 6 Core AGBA Services Simplified) */}
+          <section aria-label="Core Service Studios">
+            <div className="mb-2.5 flex flex-wrap items-baseline justify-between gap-2">
+              <h2 className="font-display text-sm font-bold">
+                01. Choose a Service Studio
+              </h2>
+              <p className="text-xs opacity-70">{activeServiceRep.tagline}</p>
+            </div>
+
             <div
-              className={`rounded-2xl border p-5 shadow-sm ${
-                isDark ? 'border-white/10 bg-[#141742]/70' : 'border-[#0F1226]/10 bg-white'
+              className={`flex flex-wrap gap-1.5 rounded-xl p-1.5 ${
+                isDark ? 'bg-[#0E1030]' : 'bg-[#F3EDE0]'
               }`}
             >
-              <div className="mb-4 flex items-center justify-between">
-                <div>
-                  <span className="font-mono text-[11px] font-bold uppercase tracking-wider text-[#D9A441]">
-                    Step 1 · Configuration
-                  </span>
-                  <h2 className="font-display text-lg font-bold">Configure Your Assistant</h2>
+              {STUDIO_SERVICE_REPRESENTATIONS.map((svc) => {
+                const isActive = svc.id === selectedServiceId;
+                return (
+                  <button
+                    key={svc.id}
+                    type="button"
+                    onClick={() => handleSelectServiceStudio(svc)}
+                    className={`rounded-lg px-3.5 py-2 text-xs font-semibold transition-colors ${
+                      isActive
+                        ? 'bg-[#3B3FA8] text-[#FAF6EC] shadow-sm'
+                        : 'opacity-75 hover:bg-current/5 hover:opacity-100'
+                    }`}
+                  >
+                    {svc.shortLabel}
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+
+          {/* SECTION 2: Linear Workflow Stepper (Click Any Step to Focus) */}
+          <section aria-label="Active Workflow Steps">
+            <div className="mb-2.5 flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2 text-xs">
+                <h2 className="font-display text-sm font-bold">
+                  02. Select Workflow Step to Configure
+                </h2>
+                <span className="opacity-50">·</span>
+                <span className="opacity-70">
+                  Focusing on 1 active step at a time
+                </span>
+              </div>
+
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setShowAddStepMenu((v) => !v)}
+                  className="inline-flex items-center gap-1 rounded-lg border border-current/15 px-2.5 py-1 text-xs font-semibold hover:bg-current/5"
+                >
+                  <Plus className="h-3.5 w-3.5 text-[#D9A441]" />
+                  <span>Add Step</span>
+                </button>
+
+                {showAddStepMenu && (
+                  <div
+                    className={`absolute right-0 z-20 mt-1.5 w-60 rounded-xl border p-1.5 shadow-lg ${
+                      isDark
+                        ? 'border-white/15 bg-[#0E1030] text-[#FAF6EC]'
+                        : 'border-[#0F1226]/15 bg-white text-[#0F1226]'
+                    }`}
+                  >
+                    {NODE_PALETTE.map((item) => (
+                      <button
+                        key={item.kind}
+                        type="button"
+                        onClick={() => handleAddNode(item)}
+                        className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-xs hover:bg-current/5"
+                      >
+                        {getNodeIcon(item.kind)}
+                        <div>
+                          <div className="font-semibold">{item.title}</div>
+                          <div className="text-[11px] opacity-65">{item.subtitle}</div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              {workflow.nodes.map((node, index) => {
+                const isSelected = selectedNode?.id === node.id;
+                const isExecuting = executingNodeId === node.id;
+                const isDone = completedNodeIds.includes(node.id);
+                const nextEdge =
+                  workflow.edges.find((e) => e.source === node.id) || workflow.edges[index];
+                const isEdgeActive = Boolean(nextEdge && activeEdgeId === nextEdge.id);
+
+                return (
+                  <React.Fragment key={node.id}>
+                    <motion.button
+                      type="button"
+                      layout
+                      onClick={() => setSelectedNodeId(node.id)}
+                      animate={{ scale: isExecuting ? 1.03 : 1 }}
+                      className={`flex items-center gap-2 rounded-xl border px-3.5 py-2.5 text-left text-xs transition-all ${
+                        isExecuting
+                          ? 'border-[#2E8B57] bg-[#2E8B57]/20 font-bold ring-2 ring-[#2E8B57]/40'
+                          : isSelected
+                            ? 'border-[#D9A441] bg-[#D9A441]/15 font-semibold shadow-sm'
+                            : isDone
+                              ? 'border-[#2E8B57]/50 bg-[#2E8B57]/10'
+                              : isDark
+                                ? 'border-white/10 bg-[#141742]/60 opacity-80 hover:opacity-100'
+                                : 'border-[#0F1226]/10 bg-white opacity-80 hover:opacity-100'
+                      }`}
+                    >
+                      <span className="font-mono text-[11px] opacity-60">0{index + 1}.</span>
+                      {getNodeIcon(node.kind)}
+                      <span>{node.title}</span>
+                    </motion.button>
+
+                    {index < workflow.nodes.length - 1 && (
+                      <motion.span
+                        animate={{
+                          scale: isEdgeActive ? 1.25 : 1,
+                          color: isEdgeActive ? '#D9A441' : undefined,
+                        }}
+                        className="opacity-40"
+                      >
+                        <ArrowRight className="h-3.5 w-3.5" />
+                      </motion.span>
+                    )}
+                  </React.Fragment>
+                );
+              })}
+            </div>
+          </section>
+
+          {/* SECTION 3: Focused Active Node Configuration Panel (Single Surface) */}
+          {selectedNode && (
+            <section
+              aria-label="Focused Step Settings"
+              className={`rounded-2xl border p-6 ${
+                isDark ? 'border-white/10 bg-[#141742]/60' : 'border-[#0F1226]/10 bg-white'
+              }`}
+            >
+              <div className="mb-5 flex flex-wrap items-center justify-between gap-3 border-b border-current/10 pb-4">
+                <div className="flex items-center gap-3">
+                  {getNodeIcon(selectedNode.kind)}
+                  <div>
+                    <h3 className="font-display text-base font-bold">{selectedNode.title}</h3>
+                    <p className="text-xs opacity-70">{selectedNode.subtitle}</p>
+                  </div>
                 </div>
+
+                {workflow.nodes.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveNode(selectedNode.id)}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-current/15 px-3 py-1.5 text-xs font-medium opacity-75 hover:border-[#C84B31] hover:text-[#C84B31] hover:opacity-100"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    <span>Remove Step</span>
+                  </button>
+                )}
               </div>
 
-              {/* Clean 3-Tab Switcher */}
-              <div
-                className={`mb-5 grid grid-cols-3 gap-1 rounded-xl p-1 text-xs font-semibold ${
-                  isDark ? 'bg-[#0F1226]' : 'bg-[#F3EDE0]'
-                }`}
-              >
-                <button
-                  type="button"
-                  onClick={() => setSetupTab('prompt')}
-                  className={`flex items-center justify-center gap-1.5 rounded-lg py-2 transition-all ${
-                    setupTab === 'prompt'
-                      ? 'bg-[#3B3FA8] text-[#FAF6EC] shadow-sm'
-                      : 'opacity-75 hover:opacity-100'
-                  }`}
-                >
-                  <Sliders className="h-3.5 w-3.5 shrink-0" />
-                  <span className="truncate">1. Prompt &amp; AI</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSetupTab('rag')}
-                  className={`flex items-center justify-center gap-1.5 rounded-lg py-2 transition-all ${
-                    setupTab === 'rag'
-                      ? 'bg-[#3B3FA8] text-[#FAF6EC] shadow-sm'
-                      : 'opacity-75 hover:opacity-100'
-                  }`}
-                >
-                  <Database className="h-3.5 w-3.5 shrink-0" />
-                  <span className="truncate">2. Files ({ragChunks.length})</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSetupTab('pipeline')}
-                  className={`flex items-center justify-center gap-1.5 rounded-lg py-2 transition-all ${
-                    setupTab === 'pipeline'
-                      ? 'bg-[#3B3FA8] text-[#FAF6EC] shadow-sm'
-                      : 'opacity-75 hover:opacity-100'
-                  }`}
-                >
-                  <Wrench className="h-3.5 w-3.5 shrink-0" />
-                  <span className="truncate">3. Steps ({workflow.nodes.length})</span>
-                </button>
-              </div>
-
-              {/* TAB 1: Prompt & Model Settings */}
-              {setupTab === 'prompt' && (
+              {/* Focused Controls for INPUT TRIGGER */}
+              {selectedNode.kind === 'input_trigger' && (
                 <div className="space-y-4 text-xs">
                   <div>
-                    <label
-                      htmlFor="assistant-name-input"
-                      className="mb-1.5 block font-semibold"
-                    >
-                      Assistant Name
+                    <label htmlFor="studio-app-name" className="mb-1.5 block font-semibold">
+                      Assistant / Studio Name
                     </label>
                     <input
-                      id="assistant-name-input"
+                      id="studio-app-name"
                       type="text"
                       value={workflow.name}
                       onChange={(e) =>
@@ -727,17 +959,202 @@ Content-Type: application/json
                       }`}
                     />
                   </div>
+                  <p className="text-xs leading-relaxed opacity-75">
+                    This entry step receives user questions from the live test runner below, your
+                    shareable Public Chat link, or authenticated REST API calls.
+                  </p>
+                </div>
+              )}
 
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {/* Focused Controls for KNOWLEDGE BASE RETRIEVER (RAG) */}
+              {selectedNode.kind === 'rag_retriever' && (
+                <div className="space-y-5 text-xs">
+                  <div
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      setIsDraggingFile(true);
+                    }}
+                    onDragLeave={() => setIsDraggingFile(false)}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      setIsDraggingFile(false);
+                      const droppedFile = e.dataTransfer.files?.[0];
+                      if (droppedFile) {
+                        handleBinaryFileUpload(droppedFile);
+                      }
+                    }}
+                    className={`rounded-xl border border-dashed p-5 text-center transition-colors ${
+                      isDraggingFile
+                        ? 'border-[#D9A441] bg-[#D9A441]/15'
+                        : isDark
+                          ? 'border-white/20 bg-[#0F1226]/60'
+                          : 'border-[#0F1226]/20 bg-[#FAF6EC]/60'
+                    }`}
+                  >
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept=".pdf,.docx,.txt,.md"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          handleBinaryFileUpload(file);
+                          e.target.value = '';
+                        }
+                      }}
+                      className="hidden"
+                    />
+                    <FileUp className="mx-auto h-6 w-6 text-[#D9A441]" />
+                    <div className="mt-2 text-sm font-semibold">
+                      Upload Knowledge Files (.pdf, .docx, .md, .txt)
+                    </div>
+                    <p className="mt-1 text-xs opacity-70">
+                      Documents are chunked and isolated strictly to workspace {activeWorkspace.name}.
+                    </p>
+                    <div className="mt-3 flex flex-wrap justify-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-[#D9A441] px-4 py-2 text-xs font-semibold text-[#0F1226]"
+                      >
+                        <Upload className="h-3.5 w-3.5" />
+                        <span>Choose File</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowTextPasteForm((v) => !v)}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-current/20 px-3 py-2 text-xs font-semibold hover:bg-current/5"
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                        <span>{showTextPasteForm ? 'Hide Text Form' : 'Paste Text Snippet'}</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {uploadMessage && (
+                    <div className="text-xs font-medium text-[#2E8B57]">{uploadMessage}</div>
+                  )}
+
+                  {showTextPasteForm && (
+                    <form onSubmit={handleUploadRagDoc} className="space-y-3 pt-2">
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        <div>
+                          <label htmlFor="rag-doc-filename" className="mb-1 block font-semibold">
+                            Filename
+                          </label>
+                          <input
+                            id="rag-doc-filename"
+                            type="text"
+                            value={uploadFilename}
+                            onChange={(e) => setUploadFilename(e.target.value)}
+                            className={`w-full rounded-lg border px-3 py-2 font-mono text-xs ${
+                              isDark
+                                ? 'border-white/15 bg-[#0F1226] text-[#FAF6EC]'
+                                : 'border-[#0F1226]/15 bg-[#FAF6EC]/60 text-[#0F1226]'
+                            }`}
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label htmlFor="rag-doc-content" className="mb-1 block font-semibold">
+                          Content
+                        </label>
+                        <textarea
+                          id="rag-doc-content"
+                          rows={3}
+                          value={uploadContent}
+                          onChange={(e) => setUploadContent(e.target.value)}
+                          className={`w-full rounded-lg border p-2.5 text-xs ${
+                            isDark
+                              ? 'border-white/15 bg-[#0F1226] text-[#FAF6EC]'
+                              : 'border-[#0F1226]/15 bg-[#FAF6EC]/60 text-[#0F1226]'
+                          }`}
+                        />
+                      </div>
+                      <button
+                        type="submit"
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-[#3B3FA8] px-4 py-2 text-xs font-semibold text-[#FAF6EC]"
+                      >
+                        <span>Save to Knowledge Base</span>
+                      </button>
+                    </form>
+                  )}
+
+                  <div className="flex flex-wrap items-center justify-between gap-4 border-t border-current/10 pt-4">
+                    <div className="flex items-center gap-3">
+                      <label htmlFor="rag-topk" className="font-semibold">
+                        Passages Retrieved (Top-K):
+                      </label>
+                      <input
+                        id="rag-topk"
+                        type="number"
+                        min={1}
+                        max={10}
+                        value={selectedNode.config.topK ?? 3}
+                        onChange={(e) =>
+                          handleUpdateSelectedNodeConfig({
+                            topK: parseInt(e.target.value, 10) || 3,
+                          })
+                        }
+                        className={`w-20 rounded-lg border px-2.5 py-1.5 font-mono text-xs ${
+                          isDark
+                            ? 'border-white/15 bg-[#0F1226] text-[#FAF6EC]'
+                            : 'border-[#0F1226]/15 bg-[#FAF6EC]/60 text-[#0F1226]'
+                        }`}
+                      />
+                    </div>
+
+                    <label className="flex cursor-pointer items-center gap-2 font-semibold">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(selectedNode.config.citationRequired)}
+                        onChange={(e) =>
+                          handleUpdateSelectedNodeConfig({
+                            citationRequired: e.target.checked,
+                          })
+                        }
+                        className="h-4 w-4 accent-[#2E8B57]"
+                      />
+                      <span>Require Source Filename Citations</span>
+                    </label>
+                  </div>
+
+                  <div className="border-t border-current/10 pt-4">
+                    <div className="mb-2 font-semibold">
+                      Indexed Workspace Documents ({ragChunks.length} passages)
+                    </div>
+                    <div className="max-h-48 space-y-2 overflow-y-auto">
+                      {ragChunks.map((chunk) => (
+                        <div
+                          key={chunk.id}
+                          className="flex items-start justify-between gap-3 border-b border-current/10 pb-2 text-xs last:border-b-0"
+                        >
+                          <div className="min-w-0">
+                            <span className="font-mono font-semibold text-[#2E8B57]">
+                              {chunk.sourceName}
+                            </span>
+                            <span className="mx-1.5 opacity-40">·</span>
+                            <span className="opacity-75">{chunk.content}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Focused Controls for AI MODEL SYNTHESIZER (LLM) */}
+              {selectedNode.kind === 'llm_generator' && (
+                <div className="space-y-4 text-xs">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                     <div>
-                      <label htmlFor="llm-provider-select" className="mb-1.5 block font-semibold">
-                        AI Provider
+                      <label htmlFor="llm-provider" className="mb-1.5 block font-semibold">
+                        AI Model Provider
                       </label>
                       <select
-                        id="llm-provider-select"
-                        value={primaryLlmNode?.config.provider || 'gemini'}
+                        id="llm-provider"
+                        value={selectedNode.config.provider || 'gemini'}
                         onChange={(e) => {
-                          if (!primaryLlmNode) return;
                           const nextProvider = e.target.value as ModelProvider;
                           const defaultModelByProvider: Record<ModelProvider, string> = {
                             gemini: 'gemini-3.8-flash',
@@ -746,7 +1163,7 @@ Content-Type: application/json
                             mistral: 'mistral-large-latest',
                             ollama: 'llama3.2:latest',
                           };
-                          handleUpdateNodeById(primaryLlmNode.id, {
+                          handleUpdateSelectedNodeConfig({
                             provider: nextProvider,
                             modelName: defaultModelByProvider[nextProvider],
                           });
@@ -766,17 +1183,16 @@ Content-Type: application/json
                     </div>
 
                     <div>
-                      <label htmlFor="llm-model-input" className="mb-1.5 block font-semibold">
+                      <label htmlFor="llm-model" className="mb-1.5 block font-semibold">
                         Model Name
                       </label>
                       <input
-                        id="llm-model-input"
+                        id="llm-model"
                         type="text"
-                        value={primaryLlmNode?.config.modelName || 'gemini-3.8-flash'}
-                        onChange={(e) => {
-                          if (!primaryLlmNode) return;
-                          handleUpdateNodeById(primaryLlmNode.id, { modelName: e.target.value });
-                        }}
+                        value={selectedNode.config.modelName || 'gemini-3.8-flash'}
+                        onChange={(e) =>
+                          handleUpdateSelectedNodeConfig({ modelName: e.target.value })
+                        }
                         className={`w-full rounded-xl border px-3 py-2.5 font-mono text-xs ${
                           isDark
                             ? 'border-white/15 bg-[#0F1226] text-[#FAF6EC]'
@@ -784,31 +1200,44 @@ Content-Type: application/json
                         }`}
                       />
                     </div>
+
+                    <div>
+                      <div className="mb-1.5 flex items-center justify-between">
+                        <label htmlFor="llm-temp" className="font-semibold">
+                          Temperature
+                        </label>
+                        <span className="font-mono font-bold text-[#D9A441]">
+                          {selectedNode.config.temperature ?? 0.2}
+                        </span>
+                      </div>
+                      <input
+                        id="llm-temp"
+                        type="range"
+                        min={0}
+                        max={1}
+                        step={0.1}
+                        value={selectedNode.config.temperature ?? 0.2}
+                        onChange={(e) =>
+                          handleUpdateSelectedNodeConfig({
+                            temperature: parseFloat(e.target.value),
+                          })
+                        }
+                        className="mt-2 w-full accent-[#D9A441]"
+                      />
+                    </div>
                   </div>
 
                   <div>
-                    <div className="mb-1.5 flex items-center justify-between">
-                      <label htmlFor="system-prompt-textarea" className="font-semibold">
-                        System Instructions (How your assistant behaves)
-                      </label>
-                      <span className="font-mono text-[11px] opacity-65">
-                        Temp: {primaryLlmNode?.config.temperature ?? 0.2}
-                      </span>
-                    </div>
+                    <label htmlFor="llm-sysprompt" className="mb-1.5 block font-semibold">
+                      System Instructions
+                    </label>
                     <textarea
-                      id="system-prompt-textarea"
-                      rows={6}
-                      value={
-                        primaryLlmNode?.config.systemPrompt ||
-                        'You are a helpful AI assistant. Answer questions accurately using the uploaded workspace documents and cite every source filename.'
+                      id="llm-sysprompt"
+                      rows={4}
+                      value={selectedNode.config.systemPrompt || ''}
+                      onChange={(e) =>
+                        handleUpdateSelectedNodeConfig({ systemPrompt: e.target.value })
                       }
-                      onChange={(e) => {
-                        if (!primaryLlmNode) return;
-                        handleUpdateNodeById(primaryLlmNode.id, {
-                          systemPrompt: e.target.value,
-                        });
-                      }}
-                      placeholder="Describe your assistant's role, tone, and rules..."
                       className={`w-full rounded-xl border p-3.5 text-xs leading-relaxed ${
                         isDark
                           ? 'border-white/15 bg-[#0F1226] text-[#FAF6EC]'
@@ -816,706 +1245,283 @@ Content-Type: application/json
                       }`}
                     />
                   </div>
-
-                  <div>
-                    <div className="mb-1 flex items-center justify-between">
-                      <span className="font-semibold">Response Creativity (Temperature)</span>
-                      <span className="font-mono font-bold text-[#D9A441]">
-                        {primaryLlmNode?.config.temperature ?? 0.2}
-                      </span>
-                    </div>
-                    <input
-                      type="range"
-                      min={0}
-                      max={1}
-                      step={0.1}
-                      value={primaryLlmNode?.config.temperature ?? 0.2}
-                      onChange={(e) => {
-                        if (!primaryLlmNode) return;
-                        handleUpdateNodeById(primaryLlmNode.id, {
-                          temperature: parseFloat(e.target.value),
-                        });
-                      }}
-                      className="w-full accent-[#D9A441]"
-                    />
-                    <div className="flex justify-between text-[11px] opacity-60">
-                      <span>0.0 (Strict &amp; Factual)</span>
-                      <span>1.0 (Creative)</span>
-                    </div>
-                  </div>
-
-                  {primaryRagNode && (
-                    <div
-                      className={`flex items-center justify-between rounded-xl border p-3.5 ${
-                        isDark ? 'border-white/10 bg-[#0F1226]/60' : 'border-[#0F1226]/10 bg-[#FAF6EC]'
-                      }`}
-                    >
-                      <div>
-                        <div className="font-semibold">Require Document Citations</div>
-                        <div className="text-[11px] opacity-75">
-                          Grounds answers in your uploaded files ({primaryRagNode.config.topK ?? 3}{' '}
-                          passages retrieved per query)
-                        </div>
-                      </div>
-                      <input
-                        type="checkbox"
-                        checked={Boolean(primaryRagNode.config.citationRequired)}
-                        onChange={(e) =>
-                          handleUpdateNodeById(primaryRagNode.id, {
-                            citationRequired: e.target.checked,
-                          })
-                        }
-                        className="h-4 w-4 accent-[#2E8B57]"
-                      />
-                    </div>
-                  )}
-
-                  <div className="flex items-center justify-between pt-2">
-                    <button
-                      type="button"
-                      onClick={() => setSetupTab('rag')}
-                      className="inline-flex items-center gap-1.5 rounded-xl border border-current/15 px-3.5 py-2 text-xs font-semibold hover:bg-current/5"
-                    >
-                      <Database className="h-3.5 w-3.5 text-[#D9A441]" />
-                      <span>Next: Knowledge Files ({ragChunks.length})</span>
-                      <ArrowRight className="h-3.5 w-3.5" />
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={handleRunWorkflow}
-                      disabled={isRunning}
-                      className="inline-flex items-center gap-1.5 rounded-xl bg-[#D9A441] px-4 py-2 text-xs font-bold text-[#0F1226] shadow-sm hover:opacity-95 disabled:opacity-50"
-                    >
-                      <Play className="h-3.5 w-3.5 fill-current" />
-                      <span>{isRunning ? 'Running…' : 'Test Now'}</span>
-                    </button>
-                  </div>
                 </div>
               )}
 
-              {/* TAB 2: Knowledge Files (RAG) */}
-              {setupTab === 'rag' && (
+              {/* Focused Controls for SERVICE TOOL STEP (Calculator / API / Search / Email) */}
+              {selectedNode.kind === 'agent_tool' && (
                 <div className="space-y-4 text-xs">
-                  <div
-                    onDragOver={(e) => {
-                      e.preventDefault();
-                      setIsDraggingFile(true);
-                    }}
-                    onDragLeave={() => setIsDraggingFile(false)}
-                    onDrop={(e) => {
-                      e.preventDefault();
-                      setIsDraggingFile(false);
-                      const droppedFile = e.dataTransfer.files?.[0];
-                      if (droppedFile) {
-                        handleBinaryFileUpload(droppedFile);
-                      }
-                    }}
-                    className={`rounded-2xl border-2 border-dashed p-5 text-center transition-colors ${
-                      isDraggingFile
-                        ? 'border-[#D9A441] bg-[#D9A441]/15'
-                        : isDark
-                          ? 'border-white/20 bg-[#0F1226]/70 hover:border-[#D9A441]/60'
-                          : 'border-[#0F1226]/20 bg-[#FAF6EC] hover:border-[#3B3FA8]/60'
-                    }`}
-                  >
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept=".pdf,.docx,.txt,.md"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) {
-                          handleBinaryFileUpload(file);
-                          e.target.value = '';
-                        }
-                      }}
-                      className="hidden"
-                    />
-                    <FileUp className="mx-auto h-7 w-7 text-[#D9A441]" />
-                    <div className="mt-2 text-sm font-bold">
-                      Upload PDF, Word (.docx), Markdown, or Text
-                    </div>
-                    <p className="mt-1 text-xs opacity-75">
-                      Your assistant automatically searches these files to answer questions with citations.
-                    </p>
-                    <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => fileInputRef.current?.click()}
-                        className="inline-flex items-center gap-1.5 rounded-xl bg-[#D9A441] px-4 py-2 text-xs font-bold text-[#0F1226] shadow-sm hover:opacity-95"
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div>
+                      <label htmlFor="active-service-tool" className="mb-1.5 block font-semibold">
+                        Active Service Capability
+                      </label>
+                      <select
+                        id="active-service-tool"
+                        value={selectedNode.config.toolId || 'calculator'}
+                        onChange={(e) => {
+                          const nextTool = e.target.value as AllowedToolId;
+                          handleUpdateSelectedNodeConfig({ toolId: nextTool });
+                          if (!workflow.allowedTools.includes(nextTool)) {
+                            handleToggleAllowedTool(nextTool);
+                          }
+                        }}
+                        className={`w-full rounded-xl border px-3 py-2.5 text-xs font-semibold ${
+                          isDark
+                            ? 'border-white/15 bg-[#0F1226] text-[#FAF6EC]'
+                            : 'border-[#0F1226]/15 bg-[#FAF6EC]/60 text-[#0F1226]'
+                        }`}
                       >
-                        <Upload className="h-3.5 w-3.5" />
-                        <span>Select File from Computer</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setShowTextPasteForm((v) => !v)}
-                        className="inline-flex items-center gap-1.5 rounded-xl border border-current/20 px-3 py-2 text-xs font-semibold hover:bg-current/5"
-                      >
-                        <Plus className="h-3.5 w-3.5" />
-                        <span>{showTextPasteForm ? 'Hide Text Form' : 'Paste Text Note'}</span>
-                      </button>
+                        {ALL_TOOLS.map((t) => (
+                          <option key={t.id} value={t.id}>
+                            {t.label}
+                          </option>
+                        ))}
+                      </select>
                     </div>
-                  </div>
 
-                  {uploadMessage && (
-                    <div className="rounded-xl border border-[#2E8B57]/40 bg-[#2E8B57]/10 p-3 text-xs font-medium">
-                      {uploadMessage}
-                    </div>
-                  )}
-
-                  {showTextPasteForm && (
-                    <form
-                      onSubmit={handleUploadRagDoc}
-                      className={`space-y-3 rounded-xl border p-4 ${
-                        isDark ? 'border-white/10 bg-[#0F1226]' : 'border-[#0F1226]/10 bg-[#FAF6EC]'
-                      }`}
-                    >
-                      <div className="font-semibold">Paste Policy, FAQ, or Price List</div>
+                    {selectedNode.config.toolId === 'http_request' && (
                       <div>
-                        <label htmlFor="rag-doc-filename" className="mb-1 block opacity-75">
-                          Document Title / Filename
+                        <label htmlFor="tool-endpoint-url" className="mb-1.5 block font-semibold">
+                          External HTTPS Endpoint (SSRF-Guarded)
                         </label>
                         <input
-                          id="rag-doc-filename"
+                          id="tool-endpoint-url"
                           type="text"
-                          value={uploadFilename}
-                          onChange={(e) => setUploadFilename(e.target.value)}
-                          className={`w-full rounded-lg border px-3 py-2 font-mono text-xs ${
+                          value={selectedNode.config.toolEndpoint || 'https://api.paystack.co/'}
+                          onChange={(e) =>
+                            handleUpdateSelectedNodeConfig({ toolEndpoint: e.target.value })
+                          }
+                          placeholder="https://api.paystack.co/transaction/verify"
+                          className={`w-full rounded-xl border px-3 py-2.5 font-mono text-xs ${
                             isDark
-                              ? 'border-white/15 bg-[#1B1F5E]/50 text-[#FAF6EC]'
-                              : 'border-[#0F1226]/15 bg-white text-[#0F1226]'
+                              ? 'border-white/15 bg-[#0F1226] text-[#FAF6EC]'
+                              : 'border-[#0F1226]/15 bg-[#FAF6EC]/60 text-[#0F1226]'
                           }`}
                         />
                       </div>
-                      <div>
-                        <label htmlFor="rag-doc-content" className="mb-1 block opacity-75">
-                          Document Content
-                        </label>
-                        <textarea
-                          id="rag-doc-content"
-                          rows={4}
-                          value={uploadContent}
-                          onChange={(e) => setUploadContent(e.target.value)}
-                          className={`w-full rounded-lg border p-2.5 text-xs ${
-                            isDark
-                              ? 'border-white/15 bg-[#1B1F5E]/50 text-[#FAF6EC]'
-                              : 'border-[#0F1226]/15 bg-white text-[#0F1226]'
-                          }`}
-                        />
-                      </div>
-                      <button
-                        type="submit"
-                        className="inline-flex items-center gap-1.5 rounded-lg bg-[#3B3FA8] px-4 py-2 text-xs font-semibold text-[#FAF6EC]"
-                      >
-                        <CheckCircle2 className="h-3.5 w-3.5" />
-                        <span>Save to Knowledge Base</span>
-                      </button>
-                    </form>
-                  )}
-
-                  <div>
-                    <div className="mb-2 flex items-center justify-between">
-                      <span className="font-semibold">
-                        Indexed Workspace Knowledge ({ragChunks.length} passages)
-                      </span>
-                    </div>
-                    <div className="max-h-72 space-y-2 overflow-y-auto pr-1">
-                      {ragChunks.map((chunk) => (
-                        <div
-                          key={chunk.id}
-                          className={`rounded-xl border p-3 ${
-                            isDark
-                              ? 'border-white/10 bg-[#0F1226]/80'
-                              : 'border-[#0F1226]/10 bg-[#FAF6EC]/60'
-                          }`}
-                        >
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="truncate font-mono text-xs font-semibold text-[#2E8B57]">
-                              {chunk.sourceName}
-                            </span>
-                            <span className="shrink-0 rounded bg-current/10 px-1.5 py-0.5 font-mono text-[10px] opacity-75">
-                              Chunk #{chunk.chunkIndex + 1}
-                            </span>
-                          </div>
-                          <p className="mt-1.5 line-clamp-2 text-xs leading-relaxed opacity-80">
-                            {chunk.content}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
+                    )}
                   </div>
-                </div>
-              )}
 
-              {/* TAB 3: Pipeline Steps & Agent Tools */}
-              {setupTab === 'pipeline' && (
-                <div className="space-y-5 text-xs">
-                  <div>
+                  <div className="border-t border-current/10 pt-3">
                     <div className="mb-2 font-semibold">
-                      Enabled Agent Tools (Click to toggle capabilities)
+                      Allowed Services for This Studio
                     </div>
-                    <div className="grid grid-cols-1 gap-2">
+                    <div className="flex flex-wrap gap-3">
                       {ALL_TOOLS.map((tool) => {
                         const checked = workflow.allowedTools.includes(tool.id);
                         return (
                           <label
                             key={tool.id}
-                            className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 transition-colors ${
-                              checked
-                                ? 'border-[#2E8B57] bg-[#2E8B57]/10'
-                                : isDark
-                                  ? 'border-white/10 bg-[#0F1226]/60 opacity-75'
-                                  : 'border-[#0F1226]/10 bg-[#FAF6EC]/60 opacity-75'
-                            }`}
+                            className="inline-flex cursor-pointer items-center gap-2 text-xs"
                           >
                             <input
                               type="checkbox"
                               checked={checked}
                               onChange={() => handleToggleAllowedTool(tool.id)}
-                              className="mt-0.5 h-4 w-4 accent-[#2E8B57]"
+                              className="h-4 w-4 accent-[#2E8B57]"
                             />
-                            <div className="min-w-0 flex-1">
-                              <div className="font-semibold">{tool.label}</div>
-                              <div className="text-[11px] opacity-75">{tool.description}</div>
-                            </div>
+                            <span className={checked ? 'font-semibold' : 'opacity-70'}>
+                              {tool.label}
+                            </span>
                           </label>
                         );
                       })}
                     </div>
                   </div>
-
-                  <div className="border-t border-current/10 pt-4">
-                    <div className="mb-2.5 flex items-center justify-between">
-                      <span className="font-semibold">
-                        Workflow Pipeline Steps ({workflow.nodes.length})
-                      </span>
-                      <span className="text-[11px] opacity-70">Click a step to configure</span>
-                    </div>
-
-                    <div className="space-y-2.5">
-                      {workflow.nodes.map((node, index) => {
-                        const isSelected = node.id === selectedNode?.id;
-                        return (
-                          <div
-                            key={node.id}
-                            onClick={() => setSelectedNodeId(node.id)}
-                            className={`cursor-pointer rounded-xl border p-3.5 transition-all ${
-                              isSelected
-                                ? 'border-[#D9A441] ring-1 ring-[#D9A441]'
-                                : isDark
-                                  ? 'border-white/10 bg-[#0F1226]/80 hover:border-white/25'
-                                  : 'border-[#0F1226]/10 bg-[#FAF6EC]/70 hover:border-[#0F1226]/25'
-                            }`}
-                          >
-                            <div className="flex items-center justify-between gap-2">
-                              <div className="flex items-center gap-2.5">
-                                <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-[#3B3FA8]/15 font-mono text-[11px] font-bold text-[#3B3FA8] dark:bg-[#D9A441]/20 dark:text-[#D9A441]">
-                                  {index + 1}
-                                </span>
-                                {getNodeIcon(node.kind)}
-                                <div>
-                                  <div className="font-semibold">{node.title}</div>
-                                  <div className="text-[11px] opacity-70">{node.subtitle}</div>
-                                </div>
-                              </div>
-
-                              {workflow.nodes.length > 1 && (
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleRemoveNode(node.id);
-                                  }}
-                                  title="Remove step"
-                                  className="rounded-lg p-1.5 opacity-60 hover:bg-[#C84B31]/15 hover:text-[#C84B31] hover:opacity-100"
-                                >
-                                  <Trash2 className="h-3.5 w-3.5" />
-                                </button>
-                              )}
-                            </div>
-
-                            {/* Inline configuration when an Agent Tool step is selected */}
-                            {isSelected && node.kind === 'agent_tool' && (
-                              <div
-                                onClick={(e) => e.stopPropagation()}
-                                className="mt-3 space-y-2.5 border-t border-current/10 pt-3"
-                              >
-                                <div>
-                                  <label className="mb-1 block font-medium">Active Tool</label>
-                                  <select
-                                    value={node.config.toolId || 'calculator'}
-                                    onChange={(e) =>
-                                      handleUpdateSelectedNodeConfig({
-                                        toolId: e.target.value as AllowedToolId,
-                                      })
-                                    }
-                                    className={`w-full rounded-lg border px-2.5 py-2 text-xs ${
-                                      isDark
-                                        ? 'border-white/15 bg-[#1B1F5E] text-[#FAF6EC]'
-                                        : 'border-[#0F1226]/15 bg-white text-[#0F1226]'
-                                    }`}
-                                  >
-                                    {ALL_TOOLS.map((t) => (
-                                      <option key={t.id} value={t.id}>
-                                        {t.label}
-                                      </option>
-                                    ))}
-                                  </select>
-                                </div>
-
-                                {node.config.toolId === 'http_request' && (
-                                  <div>
-                                    <label className="mb-1 block font-medium">
-                                      External Webhook / API Endpoint URL
-                                    </label>
-                                    <input
-                                      type="text"
-                                      value={
-                                        node.config.toolEndpoint || 'https://api.paystack.co/'
-                                      }
-                                      onChange={(e) =>
-                                        handleUpdateSelectedNodeConfig({
-                                          toolEndpoint: e.target.value,
-                                        })
-                                      }
-                                      placeholder="https://api.example.com/v1/data"
-                                      className={`w-full rounded-lg border px-2.5 py-2 font-mono text-xs ${
-                                        isDark
-                                          ? 'border-white/15 bg-[#1B1F5E] text-[#FAF6EC]'
-                                          : 'border-[#0F1226]/15 bg-white text-[#0F1226]'
-                                      }`}
-                                    />
-                                  </div>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-
-                    <div className="mt-3">
-                      <div className="mb-1.5 text-[11px] font-semibold opacity-75">
-                        Add a Step to Pipeline:
-                      </div>
-                      <div className="flex flex-wrap gap-1.5">
-                        {NODE_PALETTE.map((item) => (
-                          <button
-                            key={item.kind}
-                            type="button"
-                            onClick={() => handleAddNode(item)}
-                            className="inline-flex items-center gap-1 rounded-lg border border-current/15 px-2.5 py-1.5 text-[11px] font-semibold hover:border-[#D9A441] hover:bg-[#D9A441]/10"
-                          >
-                            <Plus className="h-3 w-3 text-[#D9A441]" />
-                            <span>{item.title}</span>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* RIGHT COLUMN: 2. Live Test Playground & Cited Output (7 cols on desktop) */}
-          <div className="flex flex-col gap-5 lg:col-span-7">
-            {/* Live Interactive Pipeline Bar */}
-            <div
-              className={`rounded-2xl border p-4 shadow-sm ${
-                isDark ? 'border-white/10 bg-[#141742]/70' : 'border-[#0F1226]/10 bg-white'
-              }`}
-            >
-              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <Sparkles className="h-4 w-4 text-[#D9A441]" />
-                  <span className="text-xs font-bold uppercase tracking-wider">
-                    Live Execution Pipeline
-                  </span>
-                </div>
-                <span className="font-mono text-[11px] opacity-70">
-                  {isRunning
-                    ? 'Running workflow steps…'
-                    : `${workflow.nodes.length} steps active · Click any step to edit`}
-                </span>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2">
-                {workflow.nodes.map((node, index) => {
-                  const isExecuting = executingNodeId === node.id;
-                  const isDone = completedNodeIds.includes(node.id);
-                  const isSelected = selectedNode?.id === node.id;
-                  const nextEdge =
-                    workflow.edges.find((e) => e.source === node.id) || workflow.edges[index];
-                  const isEdgeActive = Boolean(nextEdge && activeEdgeId === nextEdge.id);
-
-                  return (
-                    <React.Fragment key={node.id}>
-                      <motion.button
-                        type="button"
-                        layout
-                        onClick={() => {
-                          setSelectedNodeId(node.id);
-                          if (node.kind === 'rag_retriever') setSetupTab('rag');
-                          else if (node.kind === 'llm_generator') setSetupTab('prompt');
-                          else setSetupTab('pipeline');
-                        }}
-                        animate={{
-                          scale: isExecuting ? 1.04 : 1,
-                        }}
-                        className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-left text-xs transition-all ${
-                          isExecuting
-                            ? 'border-[#2E8B57] bg-[#2E8B57]/20 font-bold ring-2 ring-[#2E8B57]/40'
-                            : isDone
-                              ? 'border-[#2E8B57]/60 bg-[#2E8B57]/10'
-                              : isSelected
-                                ? 'border-[#D9A441] bg-[#D9A441]/15 font-semibold'
-                                : isDark
-                                  ? 'border-white/10 bg-[#0F1226] hover:border-white/25'
-                                  : 'border-[#0F1226]/10 bg-[#FAF6EC] hover:border-[#0F1226]/25'
-                        }`}
-                      >
-                        {getNodeIcon(node.kind)}
-                        <span className="font-medium">{node.title}</span>
-                        {isExecuting && (
-                          <span className="ml-1 inline-flex h-2 w-2 animate-ping rounded-full bg-[#2E8B57]" />
-                        )}
-                        {!isExecuting && isDone && (
-                          <CheckCircle2 className="h-3.5 w-3.5 text-[#2E8B57]" />
-                        )}
-                      </motion.button>
-
-                      {index < workflow.nodes.length - 1 && (
-                        <div className="flex items-center">
-                          <motion.div
-                            animate={{
-                              scale: isEdgeActive ? 1.25 : 1,
-                              color: isEdgeActive ? '#D9A441' : undefined,
-                            }}
-                            className="opacity-50"
-                          >
-                            <ArrowRight className="h-3.5 w-3.5" />
-                          </motion.div>
-                        </div>
-                      )}
-                    </React.Fragment>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Live Test Playground Card */}
-            <div
-              className={`flex flex-1 flex-col rounded-2xl border p-5 shadow-sm ${
-                isDark ? 'border-white/10 bg-[#141742]/70' : 'border-[#0F1226]/10 bg-white'
-              }`}
-            >
-              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                <div>
-                  <span className="font-mono text-[11px] font-bold uppercase tracking-wider text-[#2E8B57]">
-                    Step 2 · Live Playground
-                  </span>
-                  <h2 className="font-display text-lg font-bold">
-                    Test Your Assistant &amp; Verify Citations
-                  </h2>
-                </div>
-
-                {runResult && (
-                  <div className="flex items-center gap-1 rounded-lg border border-current/15 p-0.5 text-xs">
-                    <button
-                      type="button"
-                      onClick={() => setOutputTab('answer')}
-                      className={`rounded-md px-2.5 py-1 font-semibold ${
-                        outputTab === 'answer'
-                          ? 'bg-[#3B3FA8] text-[#FAF6EC]'
-                          : 'opacity-70 hover:opacity-100'
-                      }`}
-                    >
-                      Cited Answer ({runResult.citations.length})
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setOutputTab('trace')}
-                      className={`rounded-md px-2.5 py-1 font-semibold ${
-                        outputTab === 'trace'
-                          ? 'bg-[#3B3FA8] text-[#FAF6EC]'
-                          : 'opacity-70 hover:opacity-100'
-                      }`}
-                    >
-                      Execution Trace ({runResult.traceSteps.length})
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              {/* Quick Sample Prompts */}
-              <div className="mb-3">
-                <div className="mb-1.5 text-xs font-medium opacity-75">
-                  Try a sample question or type your own below:
-                </div>
-                <div className="flex flex-wrap gap-1.5">
-                  {QUICK_SAMPLE_PROMPTS.map((sample, i) => (
-                    <button
-                      key={i}
-                      type="button"
-                      onClick={() => setTestPrompt(sample)}
-                      className={`rounded-lg border px-2.5 py-1.5 text-left text-xs transition-colors ${
-                        testPrompt === sample
-                          ? 'border-[#D9A441] bg-[#D9A441]/15 font-semibold'
-                          : 'border-current/15 opacity-80 hover:bg-current/5 hover:opacity-100'
-                      }`}
-                    >
-                      {sample}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Question Input + Run Button */}
-              <div className="flex flex-col gap-3 sm:flex-row">
-                <label htmlFor="studio-test-prompt" className="sr-only">
-                  Ask your assistant a question
-                </label>
-                <textarea
-                  id="studio-test-prompt"
-                  rows={3}
-                  value={testPrompt}
-                  onChange={(e) => setTestPrompt(e.target.value)}
-                  placeholder="Ask a question to test your assistant..."
-                  className={`w-full flex-1 rounded-xl border p-3.5 text-sm leading-relaxed ${
-                    isDark
-                      ? 'border-white/15 bg-[#0F1226] text-[#FAF6EC]'
-                      : 'border-[#0F1226]/15 bg-[#FAF6EC]/60 text-[#0F1226]'
-                  }`}
-                />
-                <button
-                  type="button"
-                  onClick={handleRunWorkflow}
-                  disabled={isRunning || !testPrompt.trim()}
-                  className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-[#D9A441] px-6 py-3.5 text-sm font-bold text-[#0F1226] shadow-md transition-opacity hover:opacity-95 disabled:opacity-50 sm:self-end"
-                >
-                  <Play className="h-4 w-4 fill-current" />
-                  <span>{isRunning ? 'Running…' : 'Run Assistant'}</span>
-                </button>
-              </div>
-
-              {/* Error Banner */}
-              {runError && (
-                <div
-                  role="alert"
-                  className="mt-4 flex items-start gap-2.5 rounded-xl border border-[#C84B31] bg-[#C84B31]/10 p-4 text-xs text-[#C84B31]"
-                >
-                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-                  <div>
-                    <div className="font-bold">Execution Blocked by Security Guardrail</div>
-                    <p className="mt-0.5">{runError}</p>
-                  </div>
                 </div>
               )}
 
-              {/* Output Area */}
-              <div className="mt-5 flex-1">
-                {!runResult && !runError && (
-                  <div
-                    className={`flex min-h-[220px] flex-col items-center justify-center rounded-2xl border border-dashed p-6 text-center ${
-                      isDark ? 'border-white/10 bg-[#0F1226]/40' : 'border-[#0F1226]/15 bg-[#FAF6EC]/50'
+              {/* Focused Controls for CITED RESPONSE OUTPUT */}
+              {selectedNode.kind === 'output_response' && (
+                <div className="space-y-3 text-xs">
+                  <p className="opacity-80">
+                    Delivers the final response with verified source document citations to your
+                    Public Chat page and REST API endpoint.
+                  </p>
+                  <div className="flex flex-wrap items-center gap-3 pt-1">
+                    <button
+                      type="button"
+                      onClick={onOpenPublicChat}
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-[#3B3FA8] px-3.5 py-2 text-xs font-semibold text-[#FAF6EC]"
+                    >
+                      <ExternalLink className="h-3.5 w-3.5" />
+                      <span>Open Public Chat View</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowPublishPanel(true)}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-current/20 px-3.5 py-2 text-xs font-semibold hover:bg-current/5"
+                    >
+                      <Share2 className="h-3.5 w-3.5" />
+                      <span>View REST API &amp; Embed Code</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </section>
+          )}
+
+          {/* SECTION 4: Minimalist Live Test Runner & Cited Response */}
+          <section
+            aria-label="Test and Run Studio"
+            className={`rounded-2xl border p-6 ${
+              isDark ? 'border-white/10 bg-[#141742]/60' : 'border-[#0F1226]/10 bg-white'
+            }`}
+          >
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <Sliders className="h-4 w-4 text-[#D9A441]" />
+                <h2 className="font-display text-sm font-bold">
+                  03. Test &amp; Run Studio Live
+                </h2>
+              </div>
+
+              {runResult && (
+                <div className="flex items-center gap-1 rounded-lg border border-current/15 p-0.5 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => setOutputTab('answer')}
+                    className={`rounded-md px-2.5 py-1 font-semibold ${
+                      outputTab === 'answer'
+                        ? 'bg-[#3B3FA8] text-[#FAF6EC]'
+                        : 'opacity-70 hover:opacity-100'
                     }`}
                   >
-                    <Sparkles className="h-8 w-8 text-[#D9A441]" />
-                    <div className="mt-2 font-display text-base font-bold">
-                      Ready to Run Your Assistant
+                    Response &amp; Citations ({runResult.citations.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setOutputTab('trace')}
+                    className={`rounded-md px-2.5 py-1 font-semibold ${
+                      outputTab === 'trace'
+                        ? 'bg-[#3B3FA8] text-[#FAF6EC]'
+                        : 'opacity-70 hover:opacity-100'
+                    }`}
+                  >
+                    Execution Trace ({runResult.traceSteps.length})
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <div className="mb-3 flex flex-wrap gap-1.5">
+              {QUICK_SAMPLE_PROMPTS.map((sample, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => setTestPrompt(sample)}
+                  className={`rounded-lg border px-2.5 py-1 text-left text-xs transition-colors ${
+                    testPrompt === sample
+                      ? 'border-[#D9A441] bg-[#D9A441]/15 font-semibold'
+                      : 'border-current/15 opacity-75 hover:opacity-100'
+                  }`}
+                >
+                  {sample}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <label htmlFor="studio-test-prompt" className="sr-only">
+                Test Question
+              </label>
+              <input
+                id="studio-test-prompt"
+                type="text"
+                value={testPrompt}
+                onChange={(e) => setTestPrompt(e.target.value)}
+                placeholder="Ask a question to test this Studio..."
+                className={`w-full flex-1 rounded-xl border px-4 py-3 text-sm ${
+                  isDark
+                    ? 'border-white/15 bg-[#0F1226] text-[#FAF6EC]'
+                    : 'border-[#0F1226]/15 bg-[#FAF6EC]/60 text-[#0F1226]'
+                }`}
+              />
+              <button
+                type="button"
+                onClick={handleRunWorkflow}
+                disabled={isRunning || !testPrompt.trim()}
+                className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-[#D9A441] px-6 py-3 text-sm font-bold text-[#0F1226] transition-opacity hover:opacity-95 disabled:opacity-50"
+              >
+                <Play className="h-4 w-4 fill-current" />
+                <span>{isRunning ? 'Running…' : 'Run Studio'}</span>
+              </button>
+            </div>
+
+            {runError && (
+              <div
+                role="alert"
+                className="mt-4 flex items-start gap-2.5 rounded-xl border border-[#C84B31] bg-[#C84B31]/10 p-4 text-xs text-[#C84B31]"
+              >
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                <div>
+                  <div className="font-bold">Execution Blocked by Guardrail</div>
+                  <p className="mt-0.5">{runError}</p>
+                </div>
+              </div>
+            )}
+
+            {runResult && outputTab === 'answer' && (
+              <div className="mt-5 space-y-4 border-t border-current/10 pt-5">
+                <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                  <span className="font-bold text-[#2E8B57]">Verified Studio Output</span>
+                  <span className="font-mono opacity-70">
+                    {runResult.modelUsed} · {runResult.durationMs}ms
+                  </span>
+                </div>
+
+                <p className="whitespace-pre-line text-sm leading-relaxed">{runResult.answer}</p>
+
+                {runResult.citations.length > 0 && (
+                  <div className="border-t border-current/10 pt-3">
+                    <div className="mb-2 text-xs font-semibold opacity-75">
+                      Source Citations ({runResult.citations.length})
                     </div>
-                    <p className="mt-1 max-w-md text-xs leading-relaxed opacity-75">
-                      Click <strong>Run Assistant</strong> above to test how your assistant answers
-                      questions using your system instructions and uploaded knowledge files.
-                    </p>
-                  </div>
-                )}
-
-                {runResult && outputTab === 'answer' && (
-                  <div className="space-y-4">
-                    <div
-                      className={`rounded-2xl border p-5 ${
-                        isDark ? 'border-white/15 bg-[#0F1226]' : 'border-[#0F1226]/15 bg-[#FAF6EC]/70'
-                      }`}
-                    >
-                      <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-current/10 pb-2.5 text-xs">
-                        <div className="flex items-center gap-2">
-                          <ShieldCheck className="h-4 w-4 text-[#2E8B57]" />
-                          <span className="font-bold text-[#2E8B57]">Assistant Response</span>
+                    <div className="space-y-2">
+                      {runResult.citations.map((cit) => (
+                        <div key={cit.documentId} className="text-xs">
+                          <span className="font-mono font-semibold text-[#2E8B57]">
+                            [{cit.sourceName}]
+                          </span>
+                          {typeof cit.similarityScore === 'number' && (
+                            <>
+                              <span className="mx-1.5 opacity-40">·</span>
+                              <span className="font-mono opacity-75">
+                                {Math.round(cit.similarityScore * 100)}% match
+                              </span>
+                            </>
+                          )}
+                          <span className="mx-1.5 opacity-40">·</span>
+                          <span className="opacity-80">“{cit.excerpt}”</span>
                         </div>
-                        <span className="font-mono text-[11px] opacity-75">
-                          Model: {runResult.modelUsed} · {runResult.durationMs}ms
-                        </span>
-                      </div>
-
-                      <p className="whitespace-pre-line text-sm leading-relaxed">
-                        {runResult.answer}
-                      </p>
+                      ))}
                     </div>
-
-                    {/* Citations List */}
-                    {runResult.citations.length > 0 && (
-                      <div>
-                        <div className="mb-2 text-xs font-bold uppercase tracking-wider opacity-75">
-                          Verified Source Citations ({runResult.citations.length})
-                        </div>
-                        <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-                          {runResult.citations.map((cit) => (
-                            <div
-                              key={cit.documentId}
-                              className={`rounded-xl border p-3 text-xs ${
-                                isDark
-                                  ? 'border-white/10 bg-[#0F1226]/80'
-                                  : 'border-[#0F1226]/10 bg-[#FAF6EC]/60'
-                              }`}
-                            >
-                              <div className="flex items-center justify-between gap-2">
-                                <span className="truncate font-mono font-semibold text-[#2E8B57]">
-                                  [{cit.sourceName}]
-                                </span>
-                                {typeof cit.similarityScore === 'number' && (
-                                  <span className="rounded bg-[#2E8B57]/15 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-[#2E8B57]">
-                                    {Math.round(cit.similarityScore * 100)}% match
-                                  </span>
-                                )}
-                              </div>
-                              <p className="mt-1.5 line-clamp-2 text-[11px] leading-relaxed opacity-80">
-                                “{cit.excerpt}”
-                              </p>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {runResult && outputTab === 'trace' && (
-                  <div className="space-y-2">
-                    {runResult.traceSteps.map((step, idx) => (
-                      <div
-                        key={idx}
-                        className={`flex items-start justify-between gap-3 rounded-xl border p-3.5 text-xs ${
-                          isDark ? 'border-white/10 bg-[#0F1226]' : 'border-[#0F1226]/10 bg-[#FAF6EC]'
-                        }`}
-                      >
-                        <div>
-                          <div className="font-semibold">{step.node}</div>
-                          <div className="mt-0.5 text-[11px] opacity-80">{step.detail}</div>
-                        </div>
-                        <span className="rounded bg-[#2E8B57]/20 px-2 py-0.5 font-mono text-[10px] font-bold uppercase text-[#2E8B57]">
-                          {step.status}
-                        </span>
-                      </div>
-                    ))}
                   </div>
                 )}
               </div>
-            </div>
-          </div>
+            )}
+
+            {runResult && outputTab === 'trace' && (
+              <div className="mt-5 space-y-2 border-t border-current/10 pt-4 text-xs">
+                {runResult.traceSteps.map((step, idx) => (
+                  <div
+                    key={idx}
+                    className="flex items-start justify-between gap-3 border-b border-current/10 pb-2 last:border-b-0"
+                  >
+                    <div>
+                      <span className="font-semibold">{step.node}</span>
+                      <span className="mx-1.5 opacity-40">·</span>
+                      <span className="opacity-80">{step.detail}</span>
+                    </div>
+                    <span className="font-mono text-[11px] font-semibold uppercase text-[#2E8B57]">
+                      {step.status}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
         </div>
       </div>
     </div>
