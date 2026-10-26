@@ -173,35 +173,7 @@ export default function App() {
     void syncWorkspaceViaExpress(activeWorkspace);
   }, [authReady, firebaseUser, activeWorkspace]);
 
-  const [modelKeys, setModelKeys] = useState<MaskedModelKeyRecord[]>([
-    {
-      id: 'key_default_gemini',
-      workspace_id: 'ws_trendtactics_lagos',
-      provider: 'gemini',
-      label: 'Primary Gemini Flash Adapter',
-      maskedKey: 'AIza••••••••9f2a',
-      createdAt: '2026-10-23T04:00:00Z',
-      createdBy: 'usr_akinola_01',
-    },
-    {
-      id: 'key_default_openai',
-      workspace_id: 'ws_trendtactics_lagos',
-      provider: 'openai',
-      label: 'Lagos SME Assistant Key',
-      maskedKey: 'sk-••••••••4c81',
-      createdAt: '2026-10-23T04:00:00Z',
-      createdBy: 'usr_akinola_01',
-    },
-    {
-      id: 'key_savannah_ollama',
-      workspace_id: 'ws_savannah_labs',
-      provider: 'ollama',
-      label: 'Local Llama 3.2 Node',
-      maskedKey: 'oll-••••••••local',
-      createdAt: '2026-10-23T04:00:00Z',
-      createdBy: 'usr_amina_02',
-    },
-  ]);
+  const [modelKeys, setModelKeys] = useState<MaskedModelKeyRecord[]>([]);
 
   const defaultTemplate = ACADEMY_TEMPLATES[0];
   const [currentWorkflow, setCurrentWorkflow] = useState<StudioWorkflowApp>({
@@ -382,14 +354,6 @@ export default function App() {
           onClick: () => {
             setFreeStackCategory('All');
             setFreeStackOpenCms(false);
-            setActiveModule('freestack');
-          },
-        },
-        {
-          label: 'Content Manager (CMS)',
-          onClick: () => {
-            setFreeStackCategory('All');
-            setFreeStackOpenCms(true);
             setActiveModule('freestack');
           },
         },

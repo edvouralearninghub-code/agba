@@ -275,29 +275,6 @@ export const FreeStackView: React.FC<FreeStackViewProps> = ({
             <span aria-hidden="true">·</span>
             <span>Workspace: {activeWorkspace.name}</span>
           </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                setEditingEntry(null);
-                setShowCmsEditor((s) => !s);
-              }}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-[#D9A441] px-3.5 py-2 text-xs font-semibold text-[#0F1226] hover:bg-[#c89332] whitespace-nowrap shrink-0"
-            >
-              {showCmsEditor ? (
-                <>
-                  <SlidersHorizontal className="h-3.5 w-3.5" />
-                  <span>Hide Content Manager</span>
-                </>
-              ) : (
-                <>
-                  <Plus className="h-3.5 w-3.5" />
-                  <span>Manage &amp; Add Entries (CMS)</span>
-                </>
-              )}
-            </button>
-          </div>
         </div>
 
         <h1 className="font-display mt-2 text-2xl font-bold sm:text-3xl">
@@ -705,15 +682,6 @@ export const FreeStackView: React.FC<FreeStackViewProps> = ({
                             </td>
                             <td className="py-3.5 pr-4 pl-3 text-right align-top whitespace-nowrap">
                               <div className="inline-flex items-center gap-3">
-                                <button
-                                  type="button"
-                                  onClick={() => handleEditRow(item)}
-                                  title={`Edit ${item.serviceName} in Content Manager`}
-                                  className="inline-flex items-center gap-1 text-xs font-medium opacity-75 hover:opacity-100 hover:underline"
-                                >
-                                  <Pencil className="h-3 w-3" />
-                                  <span>Edit</span>
-                                </button>
                                 <button
                                   type="button"
                                   onClick={() => {

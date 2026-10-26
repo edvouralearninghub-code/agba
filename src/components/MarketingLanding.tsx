@@ -222,11 +222,6 @@ export const MarketingLanding: React.FC<MarketingLandingProps> = ({
           desc: 'Free inference endpoints, embeddings, and open-weights model runners.',
           action: () => onEnterFreeStack({ category: 'AI & Model APIs' }),
         },
-        {
-          title: 'Content Manager (CMS Editor)',
-          desc: 'Add or update Free Stack directory entries live without redeploying.',
-          action: () => onEnterFreeStack({ category: 'All', openCms: true }),
-        },
       ],
     },
     {
@@ -251,22 +246,17 @@ export const MarketingLanding: React.FC<MarketingLandingProps> = ({
     },
     {
       id: 'settings',
-      label: 'Settings',
+      label: 'Workspace',
       href: '#settings',
       items: [
         {
-          title: 'Cloud Persistence Bootstrap',
-          desc: 'Provision the 10 Appwrite Frankfurt Tables + Bucket and view Neon pgvector SQL.',
+          title: 'Connect Your AI Key',
+          desc: 'Connect your own Gemini, OpenAI, Claude, Mistral, or local Ollama model.',
           action: () => (onEnterSettings ? onEnterSettings() : onEnterStudio()),
         },
         {
-          title: 'Model API Keys (BYOK Vault)',
-          desc: 'Add or rotate AES-256-GCM encrypted Gemini, OpenAI, Claude, or Mistral keys.',
-          action: () => (onEnterSettings ? onEnterSettings() : onEnterStudio()),
-        },
-        {
-          title: 'System Status & Security',
-          desc: 'Inspect tenant isolation, Appwrite Cloud status, and SSRF protection.',
+          title: 'Team Workspaces',
+          desc: 'Create or switch project workspaces for your team or clients.',
           action: () => (onEnterSettings ? onEnterSettings() : onEnterStudio()),
         },
       ],
@@ -433,7 +423,7 @@ export const MarketingLanding: React.FC<MarketingLandingProps> = ({
       {/* SECTION 1: CINEMATIC HERO + INTERACTIVE 3-STEP "LEARN -> BUILD -> SHIP" LAUNCHER */}
       <section
         id="top"
-        className={`relative overflow-hidden border-b py-16 md:py-24 ${
+        className={`relative overflow-hidden border-b py-20 md:py-28 lg:py-32 ${
           isDark ? 'border-white/10 bg-[#0E1030]' : 'border-[#0F1226]/10 bg-[#FAF6EC]'
         }`}
       >
@@ -451,16 +441,16 @@ export const MarketingLanding: React.FC<MarketingLandingProps> = ({
               Full-Stack AI App Builder &amp; Cloud Workspace · Built by Trendtactics Digital
             </p>
             <h1
-              className="font-display mt-3 text-[34px] leading-[1.1] font-bold tracking-tight sm:text-[44px] lg:text-[54px]"
+              className="font-display mt-4 text-[36px] leading-[1.12] font-bold tracking-tight sm:text-[46px] lg:text-[56px]"
               style={{ textWrap: 'balance' }}
             >
               Create, train, and publish your AI assistant in 60 seconds.
             </h1>
-            <p className="mt-3 max-w-2xl text-sm leading-relaxed opacity-90 sm:text-base">
+            <p className="mt-5 max-w-2xl text-base leading-relaxed opacity-90 sm:text-lg">
               Upload your PDFs or docs, connect your Gemini/OpenAI/Claude key, test your AI workflow live, and ship a shareable chat link or REST API—all in one workspace.
             </p>
 
-            {/* Interactive Action-First Prompt Launcher (Like Vercel v0 / Supabase / Dify) */}
+            {/* Interactive Action-First Prompt Launcher (Spaced down for generous breathing room) */}
             <form
               onSubmit={(e) => {
                 e.preventDefault();
@@ -481,19 +471,19 @@ export const MarketingLanding: React.FC<MarketingLandingProps> = ({
                   onEnterStudio();
                 }
               }}
-              className={`mt-6 rounded-2xl border p-2.5 shadow-lg backdrop-blur-md ${
+              className={`mt-10 sm:mt-12 md:mt-14 rounded-2xl border p-4 sm:p-5 shadow-lg backdrop-blur-md ${
                 isDark
-                  ? 'border-white/20 bg-[#1B1F5E]/80'
+                  ? 'border-white/20 bg-[#1B1F5E]/85'
                   : 'border-[#0F1226]/20 bg-white/95'
               }`}
             >
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                 <input
                   type="text"
                   value={heroPrompt}
                   onChange={(e) => setHeroPrompt(e.target.value)}
                   placeholder="What do you want to build? e.g. 'Customer support bot trained on my company PDF' or 'Website SEO auditor'..."
-                  className={`flex-1 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm focus:outline-none ${
+                  className={`flex-1 rounded-xl px-4 py-3 text-xs sm:text-sm focus:outline-none ${
                     isDark
                       ? 'bg-[#0E1030]/90 text-[#FAF6EC] placeholder:text-[#FAF6EC]/50'
                       : 'bg-[#FAF6EC] text-[#0F1226] placeholder:text-[#0F1226]/50'
@@ -501,7 +491,7 @@ export const MarketingLanding: React.FC<MarketingLandingProps> = ({
                 />
                 <button
                   type="submit"
-                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#D9A441] px-5 py-2.5 text-xs sm:text-sm font-semibold text-[#0F1226] transition-colors duration-150 hover:bg-[#c89332] whitespace-nowrap shrink-0"
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#D9A441] px-6 py-3 text-xs sm:text-sm font-semibold text-[#0F1226] transition-colors duration-150 hover:bg-[#c89332] whitespace-nowrap shrink-0"
                 >
                   <span>Build &amp; Run App</span>
                   <ArrowRight className="h-4 w-4" />
@@ -509,7 +499,7 @@ export const MarketingLanding: React.FC<MarketingLandingProps> = ({
               </div>
 
               {/* 4 Instant 1-Click Task Starters */}
-              <div className="mt-2.5 flex flex-wrap items-center gap-1.5 px-1 text-[11px]">
+              <div className="mt-3.5 flex flex-wrap items-center gap-2 px-1 text-[11px]">
                 <span className="opacity-65 mr-1">Or start with 1 click:</span>
                 {[
                   { label: 'Chat with a PDF / Document', tplIdx: 0 },
@@ -528,7 +518,7 @@ export const MarketingLanding: React.FC<MarketingLandingProps> = ({
                         onOpenTemplateInStudio(tpl);
                       }
                     }}
-                    className={`rounded-lg border px-2.5 py-1 font-medium transition-colors ${
+                    className={`rounded-lg border px-3 py-1.5 font-medium transition-colors ${
                       isDark
                         ? 'border-white/15 bg-[#0E1030]/60 hover:border-[#D9A441] hover:text-[#D9A441]'
                         : 'border-[#0F1226]/15 bg-[#FAF6EC]/80 hover:border-[#3B3FA8] hover:text-[#3B3FA8]'
@@ -541,12 +531,12 @@ export const MarketingLanding: React.FC<MarketingLandingProps> = ({
             </form>
           </motion.div>
 
-          {/* Interactive 3-Step Journey Infographic Strip (Answers "How do I Learn, Build & Ship?") */}
+          {/* Interactive 3-Step Journey Infographic Strip (Spaced down for breathing room) */}
           <motion.div
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.15, ease: 'easeOut' }}
-            className="mt-12 grid gap-4 md:grid-cols-3"
+            className="mt-16 sm:mt-20 md:mt-24 grid gap-6 md:grid-cols-3"
           >
             {journeySteps.map((step, idx) => {
               const isSelected = activeJourneyStep === idx;
@@ -562,7 +552,7 @@ export const MarketingLanding: React.FC<MarketingLandingProps> = ({
                       setActiveJourneyStep(idx as 0 | 1 | 2);
                     }
                   }}
-                  className={`group relative flex cursor-pointer flex-col justify-between rounded-2xl border p-5 backdrop-blur-md transition-all duration-200 ${
+                  className={`group relative flex cursor-pointer flex-col justify-between rounded-2xl border p-6 backdrop-blur-md transition-all duration-200 ${
                     isSelected
                       ? isDark
                         ? 'border-[#D9A441] bg-[#1B1F5E]/80 shadow-lg'
@@ -736,10 +726,10 @@ export const MarketingLanding: React.FC<MarketingLandingProps> = ({
               <div className="flex items-center justify-between">
                 <div className="inline-flex items-center gap-2 font-display text-base font-bold">
                   <AgbaLogoMark size={24} />
-                  <span>AGBA Single Source of Truth</span>
+                  <span>AGBA Unified Workspace</span>
                 </div>
                 <span className="font-mono text-[11px] text-[#2E8B57] dark:text-[#D9A441]">
-                  ADR-008 Active
+                  Live Cloud Ready
                 </span>
               </div>
 
@@ -750,9 +740,9 @@ export const MarketingLanding: React.FC<MarketingLandingProps> = ({
                   }`}
                 >
                   <div className="font-mono text-lg font-bold text-[#3B3FA8] dark:text-[#D9A441]">
-                    10
+                    {ACADEMY_TEMPLATES.length}
                   </div>
-                  <div className="mt-0.5 text-[11px] opacity-80">TablesDB Tables</div>
+                  <div className="mt-0.5 text-[11px] opacity-80">Starter Agents</div>
                 </div>
                 <div
                   className={`rounded-xl border p-3 ${
@@ -1039,13 +1029,6 @@ export const MarketingLanding: React.FC<MarketingLandingProps> = ({
               </div>
 
               <div className="flex flex-wrap items-center gap-3 shrink-0">
-                <button
-                  type="button"
-                  onClick={() => onEnterFreeStack({ category: 'All', openCms: true })}
-                  className="inline-flex items-center gap-2 rounded-lg border border-current/20 px-4 py-2.5 text-xs font-semibold hover:bg-current/5 whitespace-nowrap"
-                >
-                  <span>Manage Entries (CMS)</span>
-                </button>
                 <button
                   type="button"
                   onClick={() => onEnterFreeStack({ category: 'All' })}

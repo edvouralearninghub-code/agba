@@ -144,16 +144,16 @@ export const AgbaHeroBackdrop: React.FC<AgbaHeroBackdropProps> = ({ isDark }) =>
         }
       `}</style>
 
-      {/* Positioned on the right side of the Hero, fading softly into the background */}
+      {/* Positioned in the upper-right of the Hero, fading softly into the background */}
       <div
-        className={`absolute top-1/2 -right-24 h-[520px] w-[680px] -translate-y-1/2 sm:-right-12 md:right-0 lg:right-4 xl:right-12 ${
+        className={`absolute top-0 -right-36 h-[500px] w-[660px] sm:top-2 sm:-right-24 md:top-3 md:-right-16 lg:-right-10 xl:-right-4 ${
           isDark ? 'opacity-40 lg:opacity-65' : 'opacity-25 lg:opacity-45'
         }`}
         style={{
           maskImage:
-            'radial-gradient(circle at 58% 50%, rgba(0,0,0,1) 28%, rgba(0,0,0,0.65) 58%, rgba(0,0,0,0) 82%)',
+            'radial-gradient(circle at 62% 46%, rgba(0,0,0,1) 26%, rgba(0,0,0,0.6) 56%, rgba(0,0,0,0) 80%)',
           WebkitMaskImage:
-            'radial-gradient(circle at 58% 50%, rgba(0,0,0,1) 28%, rgba(0,0,0,0.65) 58%, rgba(0,0,0,0) 82%)',
+            'radial-gradient(circle at 62% 46%, rgba(0,0,0,1) 26%, rgba(0,0,0,0.6) 56%, rgba(0,0,0,0) 80%)',
         }}
       >
         <svg

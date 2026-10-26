@@ -235,72 +235,23 @@ export const SettingsAndSecurityView: React.FC<SettingsAndSecurityViewProps> = (
   const [workspaceNotice, setWorkspaceNotice] = useState<string | null>(null);
 
   const [backendOverview, setBackendOverview] = useState<BackendOverviewPayload | null>(null);
-  const [auditReport, setAuditReport] = useState<SecurityTestSuiteReport | null>(null);
-  const [loadingAudit, setLoadingAudit] = useState<boolean>(false);
-
-  const [ssrfUrl, setSsrfUrl] = useState<string>('https://api.paystack.co/bank');
-  const [ssrfResult, setSsrfResult] = useState<{ allowed: boolean; message: string } | null>(null);
-  const [crossTenantResult, setCrossTenantResult] = useState<string | null>(null);
-
-  const [pgvectorSql, setPgvectorSql] = useState<string>('');
-  const [copiedSql, setCopiedSql] = useState<boolean>(false);
-  const [bootstrappingCloud, setBootstrappingCloud] = useState<boolean>(false);
-  const [cloudBootstrapMsg, setCloudBootstrapMsg] = useState<string | null>(null);
-  const [bootstrapApiKey, setBootstrapApiKey] = useState<string>('');
-  const [showAdminDiagnostics, setShowAdminDiagnostics] = useState<boolean>(false);
 
   const loadBackendData = async () => {
-    setLoadingAudit(true);
     try {
-      const [overviewRes, auditRes, sqlRes] = await Promise.all([
-        fetch(`/api/backend/overview?workspace_id=${encodeURIComponent(activeWorkspace.id)}`, {
+      const overviewRes = await fetch(
+        `/api/backend/overview?workspace_id=${encodeURIComponent(activeWorkspace.id)}`,
+        {
           headers: {
             'x-agba-workspace-id': activeWorkspace.id,
             'x-agba-role': activeWorkspace.memberRole,
           },
-        }),
-        fetch('/api/security/audit'),
-        fetch('/api/backend/pgvector-sql'),
-      ]);
+        }
+      );
       if (overviewRes.ok) {
         setBackendOverview(await overviewRes.json());
       }
-      if (auditRes.ok) {
-        setAuditReport(await auditRes.json());
-      }
-      if (sqlRes.ok) {
-        const sqlData = await sqlRes.json();
-        setPgvectorSql(sqlData.sql || '');
-      }
-    } finally {
-      setLoadingAudit(false);
-    }
-  };
-
-  const handleRunCloudBootstrap = async () => {
-    setBootstrappingCloud(true);
-    setCloudBootstrapMsg(null);
-    try {
-      const res = await fetch('/api/backend/cloud-bootstrap', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-agba-workspace-id': activeWorkspace.id,
-          'x-agba-role': activeWorkspace.memberRole,
-        },
-        body: JSON.stringify({
-          apiKey: bootstrapApiKey.trim() || undefined,
-        }),
-      });
-      const data = await res.json();
-      setCloudBootstrapMsg(data.message || data.error || 'Bootstrap finished.');
-      if (data.pgvectorSql) {
-        setPgvectorSql(data.pgvectorSql);
-      }
-    } catch (err) {
-      setCloudBootstrapMsg(err instanceof Error ? err.message : 'Cloud bootstrap failed');
-    } finally {
-      setBootstrappingCloud(false);
+    } catch {
+      // Ignore network fallback errors
     }
   };
 
@@ -365,53 +316,12 @@ export const SettingsAndSecurityView: React.FC<SettingsAndSecurityViewProps> = (
     loadBackendData();
   };
 
-  const handleTestSsrf = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const res = await fetch('/api/security/ssrf-check', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url: ssrfUrl }),
-    });
-    const data = await res.json();
-    setSsrfResult({
-      allowed: Boolean(data.allowed),
-      message: data.allowed ? data.message : data.error,
-    });
-  };
-
-  const handleSimulateCrossTenantAttempt = async () => {
-    const otherWorkspace =
-      activeWorkspace.id === 'ws_trendtactics_lagos'
-        ? 'ws_savannah_labs'
-        : 'ws_trendtactics_lagos';
-
-    const res = await fetch(
-      `/api/rag/chunks?workspace_id=${encodeURIComponent(
-        activeWorkspace.id
-      )}&target_workspace_id=${encodeURIComponent(otherWorkspace)}`,
-      {
-        headers: {
-          'x-agba-workspace-id': activeWorkspace.id,
-          'x-agba-role': activeWorkspace.memberRole,
-        },
-      }
-    );
-    const data = await res.json();
-    setCrossTenantResult(
-      res.status === 403
-        ? 'Verified: Cross-workspace document access was blocked automatically.'
-        : data.error
-    );
-  };
-
-  const displayedKeys =
-    backendOverview?.maskedKeys && backendOverview.maskedKeys.length > 0
-      ? backendOverview.maskedKeys
-      : modelKeys.filter((k) => k.workspace_id === activeWorkspace.id);
+  // Only display keys explicitly added by the user in their session
+  const displayedKeys = modelKeys.filter((k) => k.workspace_id === activeWorkspace.id);
 
   return (
     <div className="mx-auto max-w-[1200px] space-y-10 px-4 py-8 sm:px-6 lg:px-8">
-      {/* Header + Action-First User Guide (Like Supabase / Vercel Project Settings) */}
+      {/* Header + Action-First User Guide */}
       <div className="border-b border-current/10 pb-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -447,12 +357,11 @@ export const SettingsAndSecurityView: React.FC<SettingsAndSecurityViewProps> = (
         <div className="lg:col-span-5">
           <div className="flex items-center gap-2 text-sm font-semibold">
             <KeyRound className="h-4 w-4 text-[#D9A441]" />
-            <h2>Bring-Your-Own-Key (BYOK) Connections</h2>
+            <h2>Step 1: Connect Your AI Provider Key (BYOK)</h2>
           </div>
           <p className="mt-2 text-xs leading-relaxed opacity-80">
-            Connect your own OpenAI, Anthropic, Google Gemini, Mistral, or local Ollama endpoints.
-            Keys are encrypted on the server and displayed in masked form showing only the last 4
-            characters.
+            Connect your own OpenAI, Anthropic, Google Gemini, Mistral, or local Ollama endpoint.
+            Your key is encrypted on save and never exposed in plain text.
           </p>
 
           <form onSubmit={handleSaveKey} className="mt-4 space-y-3 text-xs">
@@ -495,7 +404,7 @@ export const SettingsAndSecurityView: React.FC<SettingsAndSecurityViewProps> = (
                 type="password"
                 value={rawKeyInput}
                 onChange={(e) => setRawKeyInput(e.target.value)}
-                placeholder="Enter provider key..."
+                placeholder="Enter your provider API key..."
                 className={`w-full rounded-lg border px-3 py-2 font-mono ${
                   isDark
                     ? 'border-white/15 bg-[#1B1F5E] text-[#FAF6EC]'
@@ -526,41 +435,46 @@ export const SettingsAndSecurityView: React.FC<SettingsAndSecurityViewProps> = (
           >
             <div className="mb-3 flex items-center justify-between">
               <h3 className="text-xs font-semibold">
-                Connected Model Keys ({displayedKeys.length})
+                Your Connected Model Keys ({displayedKeys.length})
               </h3>
               <span className="text-[11px] opacity-65">{activeWorkspace.name}</span>
             </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead>
-                  <tr className="border-b border-current/10 opacity-70">
-                    <th className="py-2 pr-3">Provider</th>
-                    <th className="px-3 py-2">Label</th>
-                    <th className="px-3 py-2">Masked Key</th>
-                    <th className="py-2 pl-3 text-right">Protection</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-current/10">
-                  {displayedKeys.map((rec) => (
-                    <tr key={rec.id}>
-                      <td className="py-3 pr-3 font-semibold uppercase">{rec.provider}</td>
-                      <td className="px-3 py-3">{rec.label}</td>
-                      <td className="px-3 py-3 font-mono">{rec.maskedKey}</td>
-                      <td className="py-3 pl-3 text-right text-[11px] font-medium text-[#2E8B57] dark:text-[#D9A441]">
-                        Encrypted
-                      </td>
+            {displayedKeys.length === 0 ? (
+              <div className="rounded-lg border border-dashed border-current/15 p-6 text-center text-xs opacity-75">
+                No personal API keys added to <span className="font-semibold">{activeWorkspace.name}</span> yet. Add your Gemini, OpenAI, Anthropic, Mistral, or Ollama key on the left to connect your model.
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-current/10 opacity-70">
+                      <th className="py-2 pr-3">Provider</th>
+                      <th className="px-3 py-2">Label</th>
+                      <th className="px-3 py-2">Masked Key</th>
+                      <th className="py-2 pl-3 text-right">Protection</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
+                  </thead>
+                  <tbody className="divide-y divide-current/10">
+                    {displayedKeys.map((rec) => (
+                      <tr key={rec.id}>
+                        <td className="py-3 pr-3 font-semibold uppercase">{rec.provider}</td>
+                        <td className="px-3 py-3">{rec.label}</td>
+                        <td className="px-3 py-3 font-mono">{rec.maskedKey}</td>
+                        <td className="py-3 pl-3 text-right text-[11px] font-medium text-[#2E8B57] dark:text-[#D9A441]">
+                          Encrypted
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </div>
       </section>
 
-      {/* Section 2: Team Workspaces & Recent Activity (Always visible for normal users) */}
+      {/* Section 2: Team Workspaces & Project Activity */}
       <section className="space-y-4 border-t border-current/10 pt-8">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2 text-sm font-semibold">
@@ -630,7 +544,7 @@ export const SettingsAndSecurityView: React.FC<SettingsAndSecurityViewProps> = (
             <div className="mb-2 flex items-center justify-between">
               <span className="inline-flex items-center gap-1.5 font-semibold">
                 <Bell className="h-3.5 w-3.5 text-[#D9A441]" />
-                Recent Workspace Notifications &amp; Activity
+                Recent Workspace Activity
               </span>
               <span className="font-mono text-[11px] opacity-70">
                 {backendOverview ? backendOverview.notifications.length : 0} event(s)
@@ -653,350 +567,6 @@ export const SettingsAndSecurityView: React.FC<SettingsAndSecurityViewProps> = (
           </div>
         </div>
       </section>
-
-      {/* Collapsible Platform Admin & Cloud Infrastructure Drawer (Keeps normal user view clean like Vercel/Supabase) */}
-      <div className="border-t border-current/10 pt-6">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <div className="text-sm font-semibold">
-              Platform Admin &amp; Cloud Infrastructure Diagnostics
-            </div>
-            <p className="text-xs opacity-75">
-              Appwrite Cloud Frankfurt 10-table status, Neon pgvector SQL schema, integrated open-source engines, and security audit.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => setShowAdminDiagnostics((v) => !v)}
-            className="inline-flex items-center gap-2 rounded-lg border border-current/20 px-4 py-2 text-xs font-semibold hover:bg-current/5"
-          >
-            <Server className="h-3.5 w-3.5 text-[#D9A441]" />
-            <span>
-              {showAdminDiagnostics
-                ? 'Hide Platform Admin & Infrastructure Tools'
-                : 'Show Platform Admin & Infrastructure Tools'}
-            </span>
-          </button>
-        </div>
-      </div>
-
-      {showAdminDiagnostics && (
-        <div className="space-y-10">
-          {/* Interactive Privacy & Safe Web Tool Verification */}
-          <section
-            className={`grid gap-4 rounded-xl border p-4 sm:grid-cols-2 ${
-              isDark ? 'border-white/10 bg-[#1B1F5E]/25' : 'border-[#0F1226]/10 bg-white'
-            }`}
-          >
-            <div>
-              <div className="text-xs font-semibold">Workspace Data Privacy Check</div>
-              <p className="mt-1 text-[11px] opacity-75">
-                Verify that documents uploaded to another workspace cannot be accessed from{' '}
-                <span className="font-medium">{activeWorkspace.name}</span>.
-              </p>
-              <button
-                type="button"
-                onClick={handleSimulateCrossTenantAttempt}
-                className="mt-2 rounded-lg border border-current/20 px-3 py-1.5 text-xs font-medium hover:bg-current/5"
-              >
-                Test Workspace Isolation
-              </button>
-              {crossTenantResult && (
-                <p className="mt-2 text-[11px] font-medium text-[#2E8B57] dark:text-[#D9A441]">
-                  {crossTenantResult}
-                </p>
-              )}
-            </div>
-
-            <div>
-              <div className="text-xs font-semibold">Outbound Web Request Safety Check</div>
-              <form onSubmit={handleTestSsrf} className="mt-1.5 space-y-2">
-                <input
-                  type="text"
-                  value={ssrfUrl}
-                  onChange={(e) => setSsrfUrl(e.target.value)}
-                  aria-label="URL to test"
-                  className={`w-full rounded border px-2.5 py-1 font-mono text-[11px] ${
-                    isDark
-                      ? 'border-white/15 bg-[#0E1030] text-[#FAF6EC]'
-                      : 'border-[#0F1226]/15 bg-[#FAF6EC] text-[#0F1226]'
-                  }`}
-                />
-                <button
-                  type="submit"
-                  className="rounded-lg border border-current/20 px-3 py-1 text-xs font-medium hover:bg-current/5"
-                >
-                  Verify Endpoint Safety
-                </button>
-              </form>
-              {ssrfResult && (
-                <p
-                  className={`mt-1.5 text-[11px] ${
-                    ssrfResult.allowed ? 'text-[#2E8B57]' : 'text-[#C2413B]'
-                  }`}
-                >
-                  {ssrfResult.message}
-                </p>
-              )}
-            </div>
-          </section>
-
-          {/* Section 1B: Cloud Persistence Bootstrap (Appwrite Frankfurt 10 Tables + Neon pgvector SQL) */}
-          <section className="space-y-4 border-t border-current/10 pt-8">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="flex items-center gap-2 text-sm font-semibold">
-                <Database className="h-4 w-4 text-[#D9A441]" />
-                <h2>Cloud Persistence Bootstrap (Appwrite Frankfurt + Neon pgvector)</h2>
-              </div>
-              <span className="font-mono text-xs text-[#2E8B57] dark:text-[#D9A441]">
-                Region: AWS Europe Central 1 (Frankfurt) · 10/10 Tables Ready
-              </span>
-            </div>
-
-        <div className="grid gap-6 lg:grid-cols-12">
-          <div
-            className={`flex flex-col justify-between rounded-xl border p-4 text-xs lg:col-span-5 ${
-              isDark ? 'border-white/10 bg-[#1B1F5E]/25' : 'border-[#0F1226]/10 bg-white'
-            }`}
-          >
-            <div>
-              <div className="font-semibold">
-                1. Bootstrap 10 Appwrite Cloud Tables &amp; Storage Bucket
-              </div>
-              <p className="mt-1 leading-relaxed opacity-80">
-                Provisions <span className="font-mono">agba_core</span> database, all 10{' '}
-                <span className="font-mono">TablesDB</span> collections (
-                <span className="font-mono">
-                  workspaces, studio_apps, free_stack_entries, byok_keys, rag_documents,
-                  webhook_ledger, usage_rollups, audit_logs, notifications, identity_links
-                </span>
-                ), and the <span className="font-mono">rag_files</span> bucket on Appwrite Cloud
-                Frankfurt.
-              </p>
-            </div>
-            <div className="mt-4 space-y-2.5">
-              <div>
-                <label className="mb-1 block text-[11px] font-medium opacity-80">
-                  Appwrite Server API Key (`APPWRITE_API_KEY` — required when running in AI Studio Preview; optional on Vercel)
-                </label>
-                <input
-                  type="password"
-                  value={bootstrapApiKey}
-                  onChange={(e) => setBootstrapApiKey(e.target.value)}
-                  placeholder="Paste standard_... key from Appwrite Console (or leave blank on Vercel)"
-                  className={`w-full rounded-lg border px-3 py-1.5 font-mono text-[11px] ${
-                    isDark
-                      ? 'border-white/15 bg-[#0E1030] text-[#FAF6EC]'
-                      : 'border-[#0F1226]/15 bg-[#FAF6EC] text-[#0F1226]'
-                  }`}
-                />
-              </div>
-              <button
-                type="button"
-                disabled={bootstrappingCloud}
-                onClick={handleRunCloudBootstrap}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-[#D9A441] px-4 py-2 text-xs font-semibold text-[#0F1226] hover:bg-[#c89332] disabled:opacity-50"
-              >
-                <Server className="h-3.5 w-3.5" />
-                <span>
-                  {bootstrappingCloud
-                    ? 'Provisioning Frankfurt Tables…'
-                    : 'Bootstrap 10 Appwrite Tables Now'}
-                </span>
-              </button>
-              {cloudBootstrapMsg && (
-                <p className="font-mono text-[11px] text-[#2E8B57] dark:text-[#D9A441]">
-                  {cloudBootstrapMsg}
-                </p>
-              )}
-            </div>
-          </div>
-
-          <div
-            className={`rounded-xl border p-4 text-xs lg:col-span-7 ${
-              isDark ? 'border-white/10 bg-[#1B1F5E]/25' : 'border-[#0F1226]/10 bg-white'
-            }`}
-          >
-            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-              <div>
-                <div className="font-semibold">
-                  2. Neon.tech Serverless Postgres (`pgvector` + Row-Level Security SQL)
-                </div>
-                <p className="text-[11px] opacity-75">
-                  Copy this SQL and run it once in your Neon SQL Editor, then paste your Neon{' '}
-                  <span className="font-mono">DATABASE_URL</span> into Vercel Environment Variables.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  if (pgvectorSql) {
-                    navigator.clipboard.writeText(pgvectorSql);
-                    setCopiedSql(true);
-                    setTimeout(() => setCopiedSql(false), 2000);
-                  }
-                }}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-current/20 px-3 py-1.5 text-xs font-semibold hover:bg-current/5"
-              >
-                {copiedSql ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-                <span>{copiedSql ? 'Copied SQL Script!' : 'Copy Neon pgvector SQL'}</span>
-              </button>
-            </div>
-            <pre
-              className={`max-h-36 overflow-y-auto rounded-lg border p-2.5 font-mono text-[10px] leading-relaxed ${
-                isDark
-                  ? 'border-white/10 bg-[#0E1030] text-[#FAF6EC]'
-                  : 'border-[#0F1226]/10 bg-[#FAF6EC] text-[#0F1226]'
-              }`}
-            >
-              {pgvectorSql || 'Loading pgvector RLS SQL schema...'}
-            </pre>
-          </div>
-        </div>
-      </section>
-
-      {/* Section 2B: Integrated Open-Source Engines (Inside Admin Drawer) */}
-      {backendOverview && (
-        <section className="space-y-4 border-t border-current/10 pt-8">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex items-center gap-2 text-sm font-semibold">
-              <Server className="h-4 w-4 text-[#D9A441]" />
-              <h2>Integrated Open-Source Engines</h2>
-            </div>
-            <span className="text-xs font-medium text-[#2E8B57] dark:text-[#D9A441]">
-              Self-Hosted Ready · Zero External Cloud Fees Required
-            </span>
-          </div>
-
-          <div
-            className={`overflow-x-auto rounded-xl border ${
-              isDark ? 'border-white/10 bg-[#1B1F5E]/25' : 'border-[#0F1226]/10 bg-white'
-            }`}
-          >
-            <table className="w-full text-left text-xs">
-              <thead>
-                <tr className="border-b border-current/10 opacity-75">
-                  <th className="py-3 pr-3 pl-4">Platform Service</th>
-                  <th className="px-3 py-3">Integrated Engine</th>
-                  <th className="px-3 py-3">License</th>
-                  <th className="px-3 py-3 text-right">Active Items</th>
-                  <th className="py-3 pr-4 pl-3 text-right">In-Platform Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-current/10">
-                {backendOverview.openSourceModules.map((mod) => {
-                  const targetMod: 'studio' | 'academy' | 'freestack' = mod.name
-                    .toLowerCase()
-                    .includes('cms') || mod.name.toLowerCase().includes('stack')
-                    ? 'freestack'
-                    : mod.name.toLowerCase().includes('academy')
-                      ? 'academy'
-                      : 'studio';
-
-                  return (
-                    <tr key={mod.name}>
-                      <td className="py-3 pr-3 pl-4 font-semibold">{mod.name}</td>
-                      <td className="px-3 py-3 font-mono opacity-80">
-                        {mod.repo.replace('https://github.com/', '')} · Built-In
-                      </td>
-                      <td className="px-3 py-3 font-mono">{mod.license}</td>
-                      <td className="px-3 py-3 text-right font-mono tabular-nums font-semibold">
-                        {mod.recordsCount}
-                      </td>
-                      <td className="py-3 pr-4 pl-3 text-right whitespace-nowrap">
-                        {onNavigateModule ? (
-                          <button
-                            type="button"
-                            onClick={() => onNavigateModule(targetMod)}
-                            className="inline-flex items-center gap-1 rounded-md bg-[#D9A441] px-2.5 py-1 text-[11px] font-semibold text-[#0F1226] hover:bg-[#c89332]"
-                          >
-                            <span>Open in AGBA</span>
-                            <ArrowRight className="h-3 w-3" />
-                          </button>
-                        ) : (
-                          <span className="font-mono text-[11px] text-[#2E8B57] dark:text-[#D9A441]">
-                            Active in AGBA
-                          </span>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </section>
-      )}
-
-      {/* Section 3: Automated Platform Protection & Readability Checks */}
-      <section className="border-t border-current/10 pt-8">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-          <div>
-            <div className="flex items-center gap-2 text-sm font-semibold">
-              <ShieldCheck className="h-4 w-4 text-[#2E8B57] dark:text-[#D9A441]" />
-              <h2>Platform Protection &amp; Accessibility Status</h2>
-            </div>
-            <p className="mt-1 text-xs opacity-75">
-              Automated checks verifying workspace isolation, key encryption, and reading contrast.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={loadBackendData}
-            disabled={loadingAudit}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-current/20 px-3.5 py-1.5 text-xs font-medium hover:bg-current/5"
-          >
-            <RefreshCw className={`h-3.5 w-3.5 ${loadingAudit ? 'animate-spin' : ''}`} />
-            Refresh Status
-          </button>
-        </div>
-
-        {auditReport && (
-          <div
-            className={`overflow-x-auto rounded-xl border ${
-              isDark ? 'border-white/10 bg-[#1B1F5E]/20' : 'border-[#0F1226]/10 bg-white'
-            }`}
-          >
-            <table className="w-full text-left text-xs">
-              <thead>
-                <tr className="border-b border-current/10 opacity-75">
-                  <th className="py-3 pr-3 pl-4">Protection Area</th>
-                  <th className="px-3 py-3">Verification Summary</th>
-                  <th className="py-3 pr-4 pl-3 text-right">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-current/10">
-                {auditReport.results.map((item, i) => (
-                  <tr key={i}>
-                    <td className="py-3 pr-3 pl-4 align-top font-semibold whitespace-nowrap">
-                      {item.category}
-                    </td>
-                    <td className="px-3 py-3 align-top">
-                      <div className="font-semibold">{item.name}</div>
-                      <div className="mt-0.5 opacity-75">{item.detail}</div>
-                    </td>
-                    <td className="py-3 pr-4 pl-3 text-right align-top font-mono whitespace-nowrap">
-                      {item.passed ? (
-                        <span className="inline-flex items-center gap-1 text-[#2E8B57] dark:text-[#D9A441]">
-                          <CheckCircle2 className="h-3.5 w-3.5" />
-                          Verified
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 text-[#C2413B]">
-                          <AlertCircle className="h-3.5 w-3.5" />
-                          Needs Review
-                        </span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
-        </div>
-      )}
     </div>
   );
 };
