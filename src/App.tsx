@@ -587,7 +587,7 @@ export default function App() {
                     setActiveModule('settings');
                   }
                 }}
-                placeholder="Jump to Free Stack, CMS, or Keys..."
+                placeholder="Search Studio, Free Stack, or Keys..."
                 aria-label="Global workspace search"
                 className={`w-52 rounded-lg border py-1.5 pr-3 pl-8 text-xs ${
                   isDark
