@@ -30,6 +30,7 @@ interface MarketingLandingProps {
   onEnterFreeStack: (options?: { category?: FreeStackCategory | 'All'; openCms?: boolean }) => void;
   onEnterAcademy: (track?: 'All' | 'Starter' | 'RAG Tutorial' | 'Advanced Multi-Agent') => void;
   onEnterBilling: () => void;
+  onEnterSettings?: () => void;
   onEnterPublicChat: () => void;
   onOpenTemplateInStudio: (tpl: AcademyTemplate) => void;
   isDark: boolean;
@@ -41,6 +42,7 @@ export const MarketingLanding: React.FC<MarketingLandingProps> = ({
   onEnterFreeStack,
   onEnterAcademy,
   onEnterBilling,
+  onEnterSettings,
   onEnterPublicChat,
   onOpenTemplateInStudio,
   isDark,
@@ -243,6 +245,28 @@ export const MarketingLanding: React.FC<MarketingLandingProps> = ({
           title: 'Workspace Billing & Quotas',
           desc: 'Switch between NGN and USD billing and manage usage alerts.',
           action: () => onEnterBilling(),
+        },
+      ],
+    },
+    {
+      id: 'settings',
+      label: 'Settings',
+      href: '#settings',
+      items: [
+        {
+          title: 'Cloud Persistence Bootstrap',
+          desc: 'Provision the 10 Appwrite Frankfurt Tables + Bucket and view Neon pgvector SQL.',
+          action: () => (onEnterSettings ? onEnterSettings() : onEnterStudio()),
+        },
+        {
+          title: 'Model API Keys (BYOK Vault)',
+          desc: 'Add or rotate AES-256-GCM encrypted Gemini, OpenAI, Claude, or Mistral keys.',
+          action: () => (onEnterSettings ? onEnterSettings() : onEnterStudio()),
+        },
+        {
+          title: 'System Status & Security',
+          desc: 'Inspect tenant isolation, Appwrite Cloud status, and SSRF protection.',
+          action: () => (onEnterSettings ? onEnterSettings() : onEnterStudio()),
         },
       ],
     },

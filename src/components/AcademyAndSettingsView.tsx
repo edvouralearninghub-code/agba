@@ -246,6 +246,7 @@ export const SettingsAndSecurityView: React.FC<SettingsAndSecurityViewProps> = (
   const [copiedSql, setCopiedSql] = useState<boolean>(false);
   const [bootstrappingCloud, setBootstrappingCloud] = useState<boolean>(false);
   const [cloudBootstrapMsg, setCloudBootstrapMsg] = useState<string | null>(null);
+  const [bootstrapApiKey, setBootstrapApiKey] = useState<string>('');
 
   const loadBackendData = async () => {
     setLoadingAudit(true);
@@ -286,7 +287,9 @@ export const SettingsAndSecurityView: React.FC<SettingsAndSecurityViewProps> = (
           'x-agba-workspace-id': activeWorkspace.id,
           'x-agba-role': activeWorkspace.memberRole,
         },
-        body: JSON.stringify({}),
+        body: JSON.stringify({
+          apiKey: bootstrapApiKey.trim() || undefined,
+        }),
       });
       const data = await res.json();
       setCloudBootstrapMsg(data.message || data.error || 'Bootstrap finished.');
@@ -630,7 +633,23 @@ export const SettingsAndSecurityView: React.FC<SettingsAndSecurityViewProps> = (
                 Frankfurt.
               </p>
             </div>
-            <div className="mt-4 space-y-2">
+            <div className="mt-4 space-y-2.5">
+              <div>
+                <label className="mb-1 block text-[11px] font-medium opacity-80">
+                  Appwrite Server API Key (`APPWRITE_API_KEY` — required when running in AI Studio Preview; optional on Vercel)
+                </label>
+                <input
+                  type="password"
+                  value={bootstrapApiKey}
+                  onChange={(e) => setBootstrapApiKey(e.target.value)}
+                  placeholder="Paste standard_... key from Appwrite Console (or leave blank on Vercel)"
+                  className={`w-full rounded-lg border px-3 py-1.5 font-mono text-[11px] ${
+                    isDark
+                      ? 'border-white/15 bg-[#0E1030] text-[#FAF6EC]'
+                      : 'border-[#0F1226]/15 bg-[#FAF6EC] text-[#0F1226]'
+                  }`}
+                />
+              </div>
               <button
                 type="button"
                 disabled={bootstrappingCloud}

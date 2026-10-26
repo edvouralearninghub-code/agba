@@ -285,6 +285,11 @@ export default function App() {
           setActiveModule('billing');
           setExpandedMenu('billing');
         }}
+        onEnterSettings={() => {
+          setViewMode('app');
+          setActiveModule('settings');
+          setExpandedMenu('settings');
+        }}
         onEnterPublicChat={() => {
           setViewMode('public_chat');
         }}
