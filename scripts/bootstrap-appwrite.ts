@@ -433,13 +433,19 @@ async function main() {
     return;
   }
 
-  // 1. Provision Databases
+  // 1. Provision Databases (check existing first so Appwrite Cloud Free Plan 1-DB limit doesn't return 403)
   for (const db of manifest.databases) {
-    let res = await callAppwriteAdminApi(endpoint, projectId, apiKey, '/tablesdb', 'POST', {
-      databaseId: db.$id,
-      name: db.name,
-      enabled: db.enabled,
-    });
+    let res = await callAppwriteAdminApi(endpoint, projectId, apiKey, `/tablesdb/${db.$id}`, 'GET');
+    if (!res.ok) {
+      res = await callAppwriteAdminApi(endpoint, projectId, apiKey, `/databases/${db.$id}`, 'GET');
+    }
+    if (!res.ok) {
+      res = await callAppwriteAdminApi(endpoint, projectId, apiKey, '/tablesdb', 'POST', {
+        databaseId: db.$id,
+        name: db.name,
+        enabled: db.enabled,
+      });
+    }
     if (!res.ok) {
       res = await callAppwriteAdminApi(endpoint, projectId, apiKey, '/databases', 'POST', {
         databaseId: db.$id,
@@ -598,20 +604,29 @@ async function main() {
     }
   }
 
-  // 3. Provision Storage Bucket (`rag_files`)
+  // 3. Provision Storage Bucket (`rag_files` — check existing first so Appwrite Cloud Free Plan 1-bucket limit doesn't return 403)
   for (const bucket of manifest.buckets) {
-    const bRes = await callAppwriteAdminApi(endpoint, projectId, apiKey, '/storage/buckets', 'POST', {
-      bucketId: bucket.$id,
-      name: bucket.name,
-      permissions: [],
-      fileSecurity: bucket.fileSecurity,
-      enabled: true,
-      maximumFileSize: bucket.maximumFileSize,
-      allowedFileExtensions: bucket.allowedFileExtensions,
-      compression: 'gzip',
-      encryption: true,
-      antivirus: false,
-    });
+    let bRes = await callAppwriteAdminApi(
+      endpoint,
+      projectId,
+      apiKey,
+      `/storage/buckets/${bucket.$id}`,
+      'GET'
+    );
+    if (!bRes.ok) {
+      bRes = await callAppwriteAdminApi(endpoint, projectId, apiKey, '/storage/buckets', 'POST', {
+        bucketId: bucket.$id,
+        name: bucket.name,
+        permissions: [],
+        fileSecurity: bucket.fileSecurity,
+        enabled: true,
+        maximumFileSize: bucket.maximumFileSize,
+        allowedFileExtensions: bucket.allowedFileExtensions,
+        compression: 'gzip',
+        encryption: true,
+        antivirus: false,
+      });
+    }
     console.log(`[Bucket] ${bucket.$id}: HTTP ${bRes.status} (${bRes.ok ? 'READY' : 'FAILED'})`);
   }
 
@@ -674,11 +689,17 @@ export async function runAppwriteCloudBootstrap(customParams?: {
   }
 
   for (const db of manifest.databases) {
-    let res = await callAppwriteAdminApi(endpoint, projectId, apiKey, '/tablesdb', 'POST', {
-      databaseId: db.$id,
-      name: db.name,
-      enabled: db.enabled,
-    });
+    let res = await callAppwriteAdminApi(endpoint, projectId, apiKey, `/tablesdb/${db.$id}`, 'GET');
+    if (!res.ok) {
+      res = await callAppwriteAdminApi(endpoint, projectId, apiKey, `/databases/${db.$id}`, 'GET');
+    }
+    if (!res.ok) {
+      res = await callAppwriteAdminApi(endpoint, projectId, apiKey, '/tablesdb', 'POST', {
+        databaseId: db.$id,
+        name: db.name,
+        enabled: db.enabled,
+      });
+    }
     if (!res.ok) {
       await callAppwriteAdminApi(endpoint, projectId, apiKey, '/databases', 'POST', {
         databaseId: db.$id,
@@ -729,18 +750,27 @@ export async function runAppwriteCloudBootstrap(customParams?: {
 
   const bucketStatus: { id: string; status: number; ready: boolean }[] = [];
   for (const bucket of manifest.buckets) {
-    const bRes = await callAppwriteAdminApi(endpoint, projectId, apiKey, '/storage/buckets', 'POST', {
-      bucketId: bucket.$id,
-      name: bucket.name,
-      permissions: [],
-      fileSecurity: bucket.fileSecurity,
-      enabled: true,
-      maximumFileSize: bucket.maximumFileSize,
-      allowedFileExtensions: bucket.allowedFileExtensions,
-      compression: 'gzip',
-      encryption: true,
-      antivirus: false,
-    });
+    let bRes = await callAppwriteAdminApi(
+      endpoint,
+      projectId,
+      apiKey,
+      `/storage/buckets/${bucket.$id}`,
+      'GET'
+    );
+    if (!bRes.ok) {
+      bRes = await callAppwriteAdminApi(endpoint, projectId, apiKey, '/storage/buckets', 'POST', {
+        bucketId: bucket.$id,
+        name: bucket.name,
+        permissions: [],
+        fileSecurity: bucket.fileSecurity,
+        enabled: true,
+        maximumFileSize: bucket.maximumFileSize,
+        allowedFileExtensions: bucket.allowedFileExtensions,
+        compression: 'gzip',
+        encryption: true,
+        antivirus: false,
+      });
+    }
     bucketStatus.push({
       id: bucket.$id,
       status: bRes.status,
