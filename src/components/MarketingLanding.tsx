@@ -31,6 +31,7 @@ interface MarketingLandingProps {
   onEnterAcademy: (track?: 'All' | 'Starter' | 'RAG Tutorial' | 'Advanced Multi-Agent') => void;
   onEnterBilling: () => void;
   onEnterSettings?: () => void;
+  onEnterAuth?: (mode?: 'signin' | 'signup') => void;
   onEnterPublicChat: () => void;
   onOpenTemplateInStudio: (tpl: AcademyTemplate) => void;
   isDark: boolean;
@@ -43,6 +44,7 @@ export const MarketingLanding: React.FC<MarketingLandingProps> = ({
   onEnterAcademy,
   onEnterBilling,
   onEnterSettings,
+  onEnterAuth,
   onEnterPublicChat,
   onOpenTemplateInStudio,
   isDark,
@@ -53,6 +55,9 @@ export const MarketingLanding: React.FC<MarketingLandingProps> = ({
   const [activeJourneyStep, setActiveJourneyStep] = useState<0 | 1 | 2>(0);
   const [activePreviewNode, setActivePreviewNode] = useState<number>(1);
   const [openFaqIdx, setOpenFaqIdx] = useState<number | null>(0);
+  const [faqCategory, setFaqCategory] = useState<
+    'All' | 'Studio & AI' | 'Security & Privacy' | 'Publishing & Stack'
+  >('All');
   const [liveFreeStack, setLiveFreeStack] = useState<FreeStackEntry[]>(FREE_STACK_ENTRIES);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [mobileNavOpen, setMobileNavOpen] = useState<boolean>(false);
@@ -365,10 +370,18 @@ export const MarketingLanding: React.FC<MarketingLandingProps> = ({
 
             <button
               type="button"
-              onClick={onEnterStudio}
+              onClick={() => (onEnterAuth ? onEnterAuth('signin') : onEnterStudio())}
+              className="inline-flex items-center rounded-lg border border-current/20 px-3 py-2 text-xs font-semibold transition-colors hover:bg-current/5 whitespace-nowrap shrink-0"
+            >
+              Sign In
+            </button>
+
+            <button
+              type="button"
+              onClick={() => (onEnterAuth ? onEnterAuth('signup') : onEnterStudio())}
               className="rounded-lg bg-[#D9A441] px-2.5 py-2 sm:px-4 text-xs font-semibold text-[#0F1226] transition-colors duration-150 hover:bg-[#c89332] whitespace-nowrap shrink-0"
             >
-              <span className="sm:hidden">Start free</span>
+              <span className="sm:hidden">Sign Up</span>
               <span className="hidden sm:inline">Start building free</span>
             </button>
 
@@ -1253,75 +1266,177 @@ export const MarketingLanding: React.FC<MarketingLandingProps> = ({
         </div>
       </section>
 
-      {/* SECTION 7: INTERACTIVE ACCORDION FAQ (Eliminates Wall of Text) */}
+      {/* SECTION 7: REDESIGNED 2-COLUMN CATEGORIZED FAQ */}
       <section
         id="faq"
-        className={`border-t py-14 md:py-18 ${
+        className={`border-t py-16 md:py-24 ${
           isDark ? 'border-white/10 bg-[#1B1F5E]/20' : 'border-[#0F1226]/10 bg-white/60'
         }`}
       >
-        <div className="mx-auto max-w-[900px] px-4 sm:px-6">
-          <div className="text-xs font-semibold opacity-70">06. Quick Answers</div>
-          <h2 className="font-display mt-1 text-2xl font-bold">Frequently Asked Questions</h2>
+        <div className="mx-auto max-w-[1200px] px-4 sm:px-6">
+          <div className="grid grid-cols-1 gap-10 lg:grid-cols-12">
+            {/* Left Column: Editorial Header, Category Filter & Direct Help Card */}
+            <div className="space-y-6 lg:col-span-5">
+              <div>
+                <div className="text-xs font-semibold opacity-70">06. Quick Answers</div>
+                <h2 className="font-display mt-1.5 text-2xl font-bold sm:text-[32px] leading-tight">
+                  Frequently Asked Questions
+                </h2>
+                <p className="mt-3 text-sm leading-relaxed opacity-80">
+                  Clear answers on how AGBA Studio protects your API keys, isolates your private
+                  documents, and helps you launch production AI assistants without markup.
+                </p>
+              </div>
 
-          <div className="mt-6 space-y-2.5">
-            {[
-              {
-                q: 'How are my Bring-Your-Own-Key (BYOK) model API keys protected?',
-                a: 'Your keys are encrypted at rest with AES-256-GCM on the server and decrypted only in memory when a workflow executes. They never leave the server and always appear masked (last 4 characters only) in the UI.',
-              },
-              {
-                q: 'Can another team or workspace see my uploaded documents?',
-                a: 'No. Every uploaded file and vector chunk is strictly scoped to your workspace_id with PostgreSQL FORCE ROW LEVEL SECURITY and Appwrite Team RBAC.',
-              },
-              {
-                q: 'Can I run AGBA templates with local open-weights models like Llama?',
-                a: 'Yes. Every Academy template works with both hosted providers (Gemini, OpenAI, Anthropic, Mistral) and local Ollama endpoints.',
-              },
-              {
-                q: 'How do I add or update services in the AGBA Free Stack?',
-                a: 'Open the Free Stack Directory and click "Manage & Add Entries (CMS)" to add or update verified free-tier services live without redeploying.',
-              },
-            ].map((item, idx) => {
-              const isOpen = openFaqIdx === idx;
-              return (
-                <div
-                  key={item.q}
-                  className={`rounded-xl border transition-colors ${
-                    isDark ? 'border-white/10 bg-[#0E1030]' : 'border-[#0F1226]/10 bg-[#FAF6EC]'
-                  }`}
-                >
+              {/* Category Filter Buttons */}
+              <div className="flex flex-wrap gap-1.5">
+                {(
+                  ['All', 'Studio & AI', 'Security & Privacy', 'Publishing & Stack'] as const
+                ).map((cat) => (
+                  <button
+                    key={cat}
+                    type="button"
+                    onClick={() => {
+                      setFaqCategory(cat);
+                      setOpenFaqIdx(0);
+                    }}
+                    className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
+                      faqCategory === cat
+                        ? 'bg-[#3B3FA8] text-[#FAF6EC]'
+                        : isDark
+                          ? 'border border-white/15 bg-[#0E1030] opacity-75 hover:opacity-100'
+                          : 'border border-[#0F1226]/15 bg-white opacity-75 hover:opacity-100'
+                    }`}
+                  >
+                    {cat}
+                  </button>
+                ))}
+              </div>
+
+              {/* Direct Action Callout */}
+              <div
+                className={`rounded-2xl border p-5 text-xs ${
+                  isDark ? 'border-white/10 bg-[#0E1030]' : 'border-[#0F1226]/10 bg-[#FAF6EC]'
+                }`}
+              >
+                <div className="font-display text-sm font-bold">
+                  Ready to test your own documents or API keys?
+                </div>
+                <p className="mt-1.5 leading-relaxed opacity-80">
+                  Create a free workspace in seconds or test our live public assistant directly in
+                  your browser.
+                </p>
+                <div className="mt-4 flex flex-wrap items-center gap-2.5">
                   <button
                     type="button"
-                    onClick={() => setOpenFaqIdx(isOpen ? null : idx)}
-                    aria-expanded={isOpen}
-                    className="flex w-full items-center justify-between gap-4 px-5 py-3.5 text-left text-sm font-semibold"
+                    onClick={() => (onEnterAuth ? onEnterAuth('signup') : onEnterStudio())}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-[#D9A441] px-3.5 py-2 text-xs font-semibold text-[#0F1226] hover:bg-[#c89332]"
                   >
-                    <span>{item.q}</span>
-                    <ChevronDown
-                      className={`h-4 w-4 shrink-0 transition-transform duration-150 ${
-                        isOpen ? 'rotate-180 text-[#D9A441]' : 'opacity-65'
-                      }`}
-                    />
+                    <span>Create Free Account</span>
+                    <ArrowRight className="h-3.5 w-3.5" />
                   </button>
-                  <AnimatePresence initial={false}>
-                    {isOpen && (
-                      <motion.div
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: 'auto', opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        transition={{ duration: 0.2 }}
-                        className="overflow-hidden"
-                      >
-                        <p className="border-t border-current/10 px-5 py-3.5 text-xs leading-relaxed opacity-85">
-                          {item.a}
-                        </p>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
+                  <button
+                    type="button"
+                    onClick={onEnterPublicChat}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-current/20 px-3.5 py-2 text-xs font-semibold hover:bg-current/5"
+                  >
+                    <span>Try Live Chat</span>
+                  </button>
                 </div>
-              );
-            })}
+              </div>
+            </div>
+
+            {/* Right Column: Interactive Numbered Accordion List */}
+            <div className="space-y-3 lg:col-span-7">
+              {[
+                {
+                  category: 'Security & Privacy' as const,
+                  q: 'How are my Bring-Your-Own-Key (BYOK) model API keys protected?',
+                  a: 'Your API keys are encrypted at rest with AES-256-GCM on the server and decrypted only in memory for the milliseconds a workflow executes. Raw keys never return to the browser and always appear masked (showing only the last 4 characters) in your workspace settings.',
+                },
+                {
+                  category: 'Security & Privacy' as const,
+                  q: 'Can another team or workspace see my uploaded documents?',
+                  a: 'No. Every uploaded PDF, Word document, and text passage is strictly scoped to your unique workspace_id with database-level Row-Level Security (RLS) and team access controls. Another workspace can never query or view your files.',
+                },
+                {
+                  category: 'Studio & AI' as const,
+                  q: 'Can I run AGBA Studio with local open-weights models like Llama as well as cloud APIs?',
+                  a: 'Yes. Every Studio workflow and Academy template supports Google Gemini, OpenAI, Anthropic Claude, and Mistral AI in the cloud, as well as self-hosted local models through Ollama (such as Llama 3.2 and Mistral).',
+                },
+                {
+                  category: 'Studio & AI' as const,
+                  q: 'What are the 6 Service Studios inside AGBA Studio?',
+                  a: 'AGBA Studio organizes your capabilities into 6 focused Service Studios: Knowledge Base (RAG & Citations), AI Model & Prompt, Finance & Unit Economics Calculator, External API & Webhooks, Web Search & SEO Audit, and Email & Team Notifications.',
+                },
+                {
+                  category: 'Publishing & Stack' as const,
+                  q: 'How do I share my AI assistant with customers or embed it on my website?',
+                  a: 'Click "Publish & API" at the top of AGBA Studio to get your instant Public Chat URL, a ready-to-paste website <iframe> widget, and an authenticated REST API endpoint you can call from any mobile or web backend.',
+                },
+                {
+                  category: 'Publishing & Stack' as const,
+                  q: 'How do I use the AGBA Free Stack to launch without high cloud bills?',
+                  a: 'Open the Free Stack Directory to browse verified always-free cloud, database, authentication, and hosting tiers—each linked directly to the official provider pricing page so you can pair your AI assistant with zero-cost infrastructure.',
+                },
+              ]
+                .filter((item) => faqCategory === 'All' || item.category === faqCategory)
+                .map((item, idx) => {
+                  const isOpen = openFaqIdx === idx;
+                  return (
+                    <div
+                      key={item.q}
+                      className={`rounded-2xl border transition-colors ${
+                        isOpen
+                          ? isDark
+                            ? 'border-[#D9A441]/60 bg-[#0E1030]'
+                            : 'border-[#3B3FA8]/50 bg-white'
+                          : isDark
+                            ? 'border-white/10 bg-[#0E1030]/70 hover:border-white/20'
+                            : 'border-[#0F1226]/10 bg-[#FAF6EC] hover:border-[#0F1226]/20'
+                      }`}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => setOpenFaqIdx(isOpen ? null : idx)}
+                        aria-expanded={isOpen}
+                        className="flex w-full items-start justify-between gap-4 px-5 py-4 text-left"
+                      >
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2 text-[11px] opacity-65">
+                            <span className="font-mono font-semibold">0{idx + 1}</span>
+                            <span aria-hidden="true">·</span>
+                            <span>{item.category}</span>
+                          </div>
+                          <div className="text-sm font-semibold leading-snug sm:text-base">
+                            {item.q}
+                          </div>
+                        </div>
+                        <ChevronDown
+                          className={`mt-1 h-4 w-4 shrink-0 transition-transform duration-150 ${
+                            isOpen ? 'rotate-180 text-[#D9A441]' : 'opacity-65'
+                          }`}
+                        />
+                      </button>
+                      <AnimatePresence initial={false}>
+                        {isOpen && (
+                          <motion.div
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: 'auto', opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            transition={{ duration: 0.2 }}
+                            className="overflow-hidden"
+                          >
+                            <p className="border-t border-current/10 px-5 py-4 text-xs sm:text-sm leading-relaxed opacity-85">
+                              {item.a}
+                            </p>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                  );
+                })}
+            </div>
           </div>
         </div>
       </section>

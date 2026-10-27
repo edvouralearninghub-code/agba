@@ -20,8 +20,8 @@ export const ACADEMY_TEMPLATES: AcademyTemplate[] = [
       {
         id: 'n-trigger',
         kind: 'input_trigger',
-        title: 'Chat Question Input',
-        subtitle: 'User query + workspace session context',
+        title: 'User Question',
+        subtitle: 'Receives question from chat or API',
         x: 40,
         y: 120,
         config: {},
@@ -29,8 +29,8 @@ export const ACADEMY_TEMPLATES: AcademyTemplate[] = [
       {
         id: 'n-rag',
         kind: 'rag_retriever',
-        title: 'Neon pgvector Retriever',
-        subtitle: 'Strict WHERE workspace_id = $1 filter',
+        title: 'Document Knowledge Base',
+        subtitle: 'Finds matching passages from your uploaded files',
         x: 310,
         y: 60,
         config: {
@@ -41,8 +41,8 @@ export const ACADEMY_TEMPLATES: AcademyTemplate[] = [
       {
         id: 'n-llm',
         kind: 'llm_generator',
-        title: 'Grounded Answer Synthesizer',
-        subtitle: 'Untrusted context sandbox + citations',
+        title: 'AI Assistant Brain',
+        subtitle: 'Writes a clear answer with file citations',
         x: 590,
         y: 120,
         config: {
@@ -56,8 +56,8 @@ export const ACADEMY_TEMPLATES: AcademyTemplate[] = [
       {
         id: 'n-out',
         kind: 'output_response',
-        title: 'Cited Response & REST Output',
-        subtitle: 'Returns markdown + source citations array',
+        title: 'Public Chat & API Output',
+        subtitle: 'Delivers cited response to users',
         x: 870,
         y: 120,
         config: {},

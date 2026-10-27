@@ -17,6 +17,15 @@
       "currency": "USD",
       "memberRole": "owner",
       "createdAt": "2026-10-26T12:44:36.083Z"
+    },
+    {
+      "id": "ws_trendtactics-ai-hub_4s25",
+      "name": "Trendtactics AI Hub",
+      "slug": "trendtactics-ai-hub",
+      "planTier": "free",
+      "currency": "NGN",
+      "memberRole": "owner",
+      "createdAt": "2026-10-27T09:19:19.565Z"
     }
   ],
   "modelKeys": [
@@ -359,6 +368,50 @@
     }
   ],
   "workflowRuns": [
+    {
+      "id": "run_c15ff0fb",
+      "workspace_id": "ws_trendtactics_lagos",
+      "appId": "app_sme_rag_01",
+      "appName": "SME Policy & Compliance RAG Assistant",
+      "prompt": "What are the key onboarding and Paystack settlement rules in our Lagos SME handbook?",
+      "answer": "**Grounded Answer from [Lagos_SME_Paystack_Settlement_Guide.pdf]** (Match: `81%`):\n\n> \"Paystack webhooks are verified with HMAC-SHA512 over the raw payload. All subscription amounts are stored in kobo for NGN and cents for USD. Replayed webhook events are ignored via the idempotency ledger.\"\n\n**Summary:** Completed in workspace `ws_trendtactics_lagos` with citation verification and prompt-injection sandboxing.",
+      "modelUsed": "agba-local-engine (self-hosted synthesizer)",
+      "status": "completed",
+      "durationMs": 4,
+      "nodeTraces": [
+        {
+          "nodeId": "node_1",
+          "nodeTitle": "Vector Cosine Retriever (rag_chunks_768)",
+          "kind": "step",
+          "status": "ok",
+          "durationMs": 5,
+          "outputSummary": "Retrieved 2 chunk(s) strictly filtered by workspace_id=\"ws_trendtactics_lagos\" (top cosine score: 0.808)."
+        },
+        {
+          "nodeId": "node_2",
+          "nodeTitle": "Grounded Answer Synthesizer",
+          "kind": "step",
+          "status": "ok",
+          "durationMs": 5,
+          "outputSummary": "Completed via agba-local-engine (self-hosted synthesizer) with 2 verified citation(s)."
+        }
+      ],
+      "citations": [
+        {
+          "sourceName": "Lagos_SME_Paystack_Settlement_Guide.pdf",
+          "documentId": "rag_seed_paystack.pdf",
+          "similarityScore": 0.808,
+          "excerpt": "Paystack webhooks are verified with HMAC-SHA512 over the raw payload. All subscription amounts are stored in kobo for NGN and cents for USD. Replayed webhook ev…"
+        },
+        {
+          "sourceName": "AGBA_Security_And_Architecture_v1.md",
+          "documentId": "rag_seed_arch_v1.md",
+          "similarityScore": 0.349,
+          "excerpt": "AGBA is a self-hosted multi-tenant platform built on open-source foundations: Appwrite (BSD-3-Clause) for Teams/Workspaces, Auth, and Storage; PostgreSQL pgvect…"
+        }
+      ],
+      "createdAt": "2026-10-27T09:31:59.449Z"
+    },
     {
       "id": "run_51cca9e9",
       "workspace_id": "ws_trendtactics_lagos",
@@ -1285,6 +1338,16 @@
     }
   ],
   "notifications": [
+    {
+      "id": "notif_ce8e2408-b3c3-40fd-9a2b-c138264fc0a0",
+      "workspace_id": "ws_trendtactics-ai-hub_4s25",
+      "workflowTrigger": "welcome",
+      "channel": "in-app",
+      "title": "Workspace \"Trendtactics AI Hub\" Provisioned",
+      "body": "Created isolated Appwrite 2.6.1 Team & TablesDB workspace unit (ws_trendtactics-ai-hub_4s25) with read-only team permissions and zero cross-tenant access.",
+      "read": false,
+      "createdAt": "2026-10-27T09:19:19.566Z"
+    },
     {
       "id": "notif_welcome_01",
       "workspace_id": "ws_trendtactics_lagos",

@@ -709,11 +709,18 @@ export class AgbaSelfHostedBackend {
   }
 
   public getDecryptedKeyForProvider(ctx: TenantContext, provider: ModelProvider): string | null {
-    const rec = this.state.modelKeys.find(
+    const candidates = this.state.modelKeys.filter(
       (k) => k.workspace_id === ctx.workspace_id && k.provider === provider
     );
-    if (!rec) return null;
-    return decryptApiKey(rec.envelope);
+    for (const rec of candidates) {
+      try {
+        const plain = decryptApiKey(rec.envelope);
+        if (plain) return plain;
+      } catch {
+        // Ignore keys encrypted under a previous or rotated master key
+      }
+    }
+    return null;
   }
 
   /**
@@ -728,9 +735,13 @@ export class AgbaSelfHostedBackend {
     const candidates = this.state.modelKeys.filter((k) => k.workspace_id === workspaceId);
     for (const candidate of candidates) {
       if (preferredProvider && candidate.provider !== preferredProvider) continue;
-      const decrypted = decryptApiKey(candidate.envelope);
-      if (decrypted && !decrypted.includes('AgbaLocalDemoKey') && !decrypted.includes('LocalDemoKey')) {
-        return { provider: candidate.provider, decryptedKey: decrypted };
+      try {
+        const decrypted = decryptApiKey(candidate.envelope);
+        if (decrypted && !decrypted.includes('AgbaLocalDemoKey') && !decrypted.includes('LocalDemoKey')) {
+          return { provider: candidate.provider, decryptedKey: decrypted };
+        }
+      } catch {
+        // Skip keys encrypted under a different master key
       }
     }
     throw new MissingWorkspaceByokError(

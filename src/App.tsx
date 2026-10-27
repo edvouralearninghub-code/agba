@@ -19,6 +19,7 @@ import {
   LogOut,
 } from 'lucide-react';
 import { MarketingLanding } from './components/MarketingLanding.tsx';
+import { AuthView } from './components/AuthView.tsx';
 import { AgbaLogoMark } from './components/AgbaLogoMark.tsx';
 import { StudioWorkspace } from './components/StudioWorkspace.tsx';
 import { FreeStackView } from './components/FreeStackView.tsx';
@@ -31,9 +32,10 @@ import { buildProgrammaticSeo, syncBrowserSeo } from './lib/seoEngine.ts';
 import {
   auth,
   bridgeFirebaseUserToAppwrite,
+  getStoredAgbaSession,
   onAuthStateChanged,
-  signInWithGooglePopup,
   signOutFirebaseUser,
+  type BridgedSessionSummary,
   type User,
 } from './lib/firebase.ts';
 import {
@@ -82,7 +84,10 @@ function maskKeyForClient(raw: string): string {
 }
 
 export default function App() {
-  const [viewMode, setViewMode] = useState<'marketing' | 'app' | 'public_chat'>('marketing');
+  const [viewMode, setViewMode] = useState<'marketing' | 'auth' | 'app' | 'public_chat'>(
+    'marketing'
+  );
+  const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin');
   const [activeModule, setActiveModule] = useState<ActiveModule>('studio');
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
@@ -100,6 +105,9 @@ export default function App() {
   const [workspaces, setWorkspaces] = useState<Workspace[]>(INITIAL_WORKSPACES);
   const [activeWorkspaceId, setActiveWorkspaceId] = useState<string>('ws_trendtactics_lagos');
   const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
+  const [agbaSession, setAgbaSession] = useState<BridgedSessionSummary | null>(() =>
+    getStoredAgbaSession()
+  );
   const [authReady, setAuthReady] = useState<boolean>(false);
 
   const activeWorkspace =
@@ -107,9 +115,16 @@ export default function App() {
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      if (window.location.pathname === '/status') {
+      const path = window.location.pathname.toLowerCase();
+      if (path === '/status') {
         setViewMode('app');
         setActiveModule('settings');
+      } else if (path === '/signin' || path === '/login') {
+        setAuthMode('signin');
+        setViewMode('auth');
+      } else if (path === '/signup' || path === '/register') {
+        setAuthMode('signup');
+        setViewMode('auth');
       } else {
         const params = new URLSearchParams(window.location.search);
         const qView = params.get('view');
@@ -124,6 +139,12 @@ export default function App() {
 
         if (qView === 'app') {
           setViewMode('app');
+        } else if (qView === 'auth' || qView === 'signin') {
+          setAuthMode('signin');
+          setViewMode('auth');
+        } else if (qView === 'signup') {
+          setAuthMode('signup');
+          setViewMode('auth');
         }
         if (
           qModule &&
@@ -158,7 +179,7 @@ export default function App() {
       activeModule === 'settings';
 
     const seoMeta = buildProgrammaticSeo({
-      viewMode: isStatusRoute ? 'status' : viewMode,
+      viewMode: isStatusRoute ? 'status' : viewMode === 'auth' ? 'marketing' : viewMode,
       activeModule,
       freeStackCategory,
       academyTrack,
@@ -231,6 +252,40 @@ export default function App() {
     );
   };
 
+  if (viewMode === 'auth') {
+    return (
+      <AuthView
+        initialMode={authMode}
+        isDark={isDark}
+        onToggleTheme={() => setIsDark((d) => !d)}
+        onBackToHome={() => setViewMode('marketing')}
+        onAuthSuccess={(session) => {
+          setAgbaSession(session);
+          if (session.workspaceName && session.workspaceName.trim().length >= 2) {
+            const slug = session.workspaceName
+              .trim()
+              .toLowerCase()
+              .replace(/[^a-z0-9]+/g, '-');
+            const newWs: Workspace = {
+              id: `ws_${slug}_${Date.now().toString(36).slice(-4)}`,
+              name: session.workspaceName.trim(),
+              slug,
+              planTier: 'free',
+              currency: 'NGN',
+              memberRole: 'owner',
+              createdAt: new Date().toISOString(),
+            };
+            setWorkspaces((prev) => [newWs, ...prev]);
+            setActiveWorkspaceId(newWs.id);
+          }
+          setViewMode('app');
+          setActiveModule('studio');
+          setExpandedMenu('studio');
+        }}
+      />
+    );
+  }
+
   if (viewMode === 'marketing') {
     return (
       <MarketingLanding
@@ -261,6 +316,10 @@ export default function App() {
           setViewMode('app');
           setActiveModule('settings');
           setExpandedMenu('settings');
+        }}
+        onEnterAuth={(mode) => {
+          setAuthMode(mode ?? 'signin');
+          setViewMode('auth');
         }}
         onEnterPublicChat={() => {
           setViewMode('public_chat');
@@ -613,22 +672,35 @@ export default function App() {
             </button>
 
             <div className="hidden sm:flex items-center gap-2 border-l border-current/10 pl-3 text-xs">
-              {firebaseUser ? (
+              {firebaseUser || agbaSession ? (
                 <>
                   <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[#2E8B57] font-mono text-xs font-bold text-[#FAF6EC]">
-                    {(firebaseUser.displayName || firebaseUser.email || 'AG')
+                    {(
+                      firebaseUser?.displayName ||
+                      agbaSession?.displayName ||
+                      firebaseUser?.email ||
+                      agbaSession?.email ||
+                      'AG'
+                    )
                       .slice(0, 2)
                       .toUpperCase()}
                   </div>
                   <div className="leading-tight">
                     <div className="font-semibold">
-                      {firebaseUser.displayName || 'Akinola Olujobi'}
+                      {firebaseUser?.displayName ||
+                        agbaSession?.displayName ||
+                        'AGBA Builder'}
                     </div>
-                    <div className="text-[11px] opacity-70">{firebaseUser.email}</div>
+                    <div className="text-[11px] opacity-70">
+                      {firebaseUser?.email || agbaSession?.email}
+                    </div>
                   </div>
                   <button
                     type="button"
-                    onClick={() => void signOutFirebaseUser()}
+                    onClick={() => {
+                      setAgbaSession(null);
+                      void signOutFirebaseUser();
+                    }}
                     title="Sign Out"
                     className="ml-1 inline-flex items-center gap-1 rounded-lg border border-current/15 px-2 py-1 text-[11px] font-medium hover:bg-current/5"
                   >
@@ -637,23 +709,17 @@ export default function App() {
                   </button>
                 </>
               ) : (
-                <>
-                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[#3B3FA8] font-mono text-xs font-bold text-[#FAF6EC]">
-                    AO
-                  </div>
-                  <div className="leading-tight">
-                    <div className="font-semibold">Akinola Olujobi</div>
-                    <div className="text-[11px] opacity-70">Trendtactics Digital</div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => void signInWithGooglePopup()}
-                    className="ml-1 inline-flex items-center gap-1 rounded-lg bg-[#D9A441] px-2.5 py-1.5 text-[11px] font-semibold text-[#0F1226] hover:bg-[#c89332]"
-                  >
-                    <LogIn className="h-3 w-3" />
-                    <span>Sign In</span>
-                  </button>
-                </>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAuthMode('signin');
+                    setViewMode('auth');
+                  }}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-[#D9A441] px-3 py-1.5 text-xs font-semibold text-[#0F1226] hover:bg-[#c89332]"
+                >
+                  <LogIn className="h-3.5 w-3.5" />
+                  <span>Sign In</span>
+                </button>
               )}
             </div>
           </div>

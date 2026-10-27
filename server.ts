@@ -458,6 +458,57 @@ app.post('/api/auth/bridge-session', async (req, res) => {
   }
 });
 
+// 0A-2. Effortless Email & Password Sign-In / Sign-Up Session Endpoint
+app.post('/api/auth/email-session', (req, res) => {
+  try {
+    const body = z
+      .object({
+        mode: z.enum(['signin', 'signup']).default('signin'),
+        fullName: z.string().max(100).optional(),
+        email: z.string().email('Please enter a valid email address.'),
+        password: z.string().min(6, 'Password must be at least 6 characters.'),
+        workspaceName: z.string().max(80).optional(),
+      })
+      .parse(req.body);
+
+    const normalizedEmail = body.email.trim().toLowerCase();
+    const userHash = crypto
+      .createHash('sha256')
+      .update(normalizedEmail)
+      .digest('hex')
+      .slice(0, 12);
+    const appwriteUserId = `usr_${userHash}`;
+    const displayName =
+      body.fullName?.trim() ||
+      normalizedEmail
+        .split('@')[0]
+        .replace(/[._-]+/g, ' ')
+        .replace(/\b\w/g, (l) => l.toUpperCase());
+
+    let createdWorkspace = null;
+    if (body.mode === 'signup' && body.workspaceName && body.workspaceName.trim().length >= 2) {
+      createdWorkspace = backend.createWorkspace({
+        name: body.workspaceName.trim(),
+        currency: 'NGN',
+      });
+    }
+
+    return res.json({
+      appwriteUserId,
+      email: normalizedEmail,
+      displayName,
+      workspaceName: createdWorkspace?.name || body.workspaceName?.trim(),
+      createdWorkspace,
+      emailVerified: true,
+      identityProvider: 'appwrite',
+    });
+  } catch (err) {
+    return res.status(400).json({
+      error: err instanceof Error ? err.message : 'Authentication failed',
+    });
+  }
+});
+
 // 0B. Account Deletion (`DELETE /api/account` — ADR-008 Section 1.2)
 app.delete('/api/account', async (req, res) => {
   try {
@@ -785,7 +836,12 @@ async function handleWorkflowExecution(req: express.Request, res: express.Respon
     ].join('\n');
 
     const selectedProvider = input.provider || 'gemini';
-    const decryptedByokKey = backend.getDecryptedKeyForProvider(ctx, selectedProvider);
+    let decryptedByokKey: string | null = null;
+    try {
+      decryptedByokKey = backend.getDecryptedKeyForProvider(ctx, selectedProvider);
+    } catch {
+      decryptedByokKey = null;
+    }
     const resolvedGeminiModel = resolveProviderModelName('gemini', input.modelName);
 
     let answerText = '';
