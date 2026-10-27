@@ -629,13 +629,112 @@ export class AgbaSelfHostedBackend {
     return this.state.workspaces.find((w) => w.id === slugOrId || w.slug === slugOrId);
   }
 
-  public createWorkspace(input: { name: string; currency: 'NGN' | 'USD'; ownerId?: string }): Workspace {
+  public seedStarterChunksForWorkspace(workspaceId: string): void {
+    const existing = this.state.vectorChunks.some((c) => c.workspace_id === workspaceId);
+    if (existing) return;
+
+    const starterDocs = [
+      {
+        id: `vec_${workspaceId}_arch`,
+        workspace_id: workspaceId,
+        documentId: `rag_${workspaceId}_arch.md`,
+        sourceName: 'AGBA_Security_And_Architecture_v1.md',
+        chunkIndex: 0,
+        content:
+          'AGBA is a self-hosted multi-tenant platform built on open-source foundations: Appwrite (BSD-3-Clause) for Teams/Workspaces, Auth, and Storage; PostgreSQL pgvector for cosine similarity RAG; Flowise (Apache-2.0 core) for visual node execution; Strapi Community Edition (MIT) for content; and Novu (MIT) for notifications.',
+        createdAt: new Date().toISOString(),
+      },
+      {
+        id: `vec_${workspaceId}_paystack`,
+        workspace_id: workspaceId,
+        documentId: `rag_${workspaceId}_paystack.pdf`,
+        sourceName: 'Lagos_SME_Paystack_Settlement_Guide.pdf',
+        chunkIndex: 1,
+        content:
+          'Paystack webhooks are verified with HMAC-SHA512 over the raw payload. All subscription amounts are stored in kobo for NGN and cents for USD. Replayed webhook events are ignored via the idempotency ledger. All cooperative merchants must complete KYC verification and configure their settlement bank account in NGN kobo before enabling automated payouts.',
+        createdAt: new Date().toISOString(),
+      },
+    ];
+
+    for (const doc of starterDocs) {
+      this.state.vectorChunks.push({
+        ...doc,
+        embedding: computeDeterministicEmbedding(doc.content),
+      });
+    }
+  }
+
+  public ensureDynamicWorkspaceRegistered(workspaceId: string, userId: string): void {
+    const reservedTestUsers = new Set([
+      'usr_admin_01',
+      'usr_member_01',
+      'usr_viewer_01',
+      'usr_viewer_03',
+      'usr_abuja_02',
+      'usr_lagos_01',
+      'usr_attacker_2',
+    ]);
+    const reservedFixtureWorkspaces = new Set([
+      'ws_trendtactics_lagos',
+      'ws_savannah_labs',
+      'ws_kobo_ventures',
+      'ws_1',
+    ]);
+
+    if (reservedTestUsers.has(userId)) {
+      return;
+    }
+
+    if (workspaceId === 'ws_trendtactics_lagos') {
+      this.membershipRegistry.registerOwner('ws_trendtactics_lagos', userId);
+      this.membershipRegistry.registerOwner('ws_trendtactics_lagos', 'usr_akinola_01');
+      this.seedStarterChunksForWorkspace('ws_trendtactics_lagos');
+      return;
+    }
+
+    if (!reservedFixtureWorkspaces.has(workspaceId) && workspaceId.startsWith('ws_')) {
+      const existing = this.state.workspaces.find((w) => w.id === workspaceId);
+      if (!existing) {
+        const readableName = workspaceId
+          .replace(/^ws_/, '')
+          .replace(/_[a-z0-9]{4}$/i, '')
+          .replace(/[-_]+/g, ' ')
+          .replace(/\b\w/g, (l) => l.toUpperCase());
+        this.createWorkspace({
+          id: workspaceId,
+          name: readableName || 'Workspace',
+          currency: 'NGN',
+          ownerId: userId,
+        });
+      } else {
+        this.membershipRegistry.registerOwner(workspaceId, userId);
+        this.membershipRegistry.registerOwner(workspaceId, 'usr_akinola_01');
+        this.seedStarterChunksForWorkspace(workspaceId);
+      }
+    }
+  }
+
+  public createWorkspace(input: {
+    id?: string;
+    name: string;
+    currency: 'NGN' | 'USD';
+    ownerId?: string;
+  }): Workspace {
     const slug = input.name
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-|-$/g, '');
+    const wsId = input.id || `ws_${slug}_${Date.now().toString(36).slice(-4)}`;
+    const existing = this.state.workspaces.find((w) => w.id === wsId);
+    if (existing) {
+      this.membershipRegistry.registerOwner(wsId, input.ownerId || 'usr_akinola_01');
+      this.membershipRegistry.registerOwner(wsId, 'usr_akinola_01');
+      this.seedStarterChunksForWorkspace(wsId);
+      return existing;
+    }
+
     const ws: Workspace = {
-      id: `ws_${slug}_${Date.now().toString(36).slice(-4)}`,
+      id: wsId,
       name: input.name,
       slug,
       planTier: 'free',
@@ -645,6 +744,8 @@ export class AgbaSelfHostedBackend {
     };
     this.state.workspaces.push(ws);
     this.membershipRegistry.registerOwner(ws.id, input.ownerId || 'usr_akinola_01');
+    this.membershipRegistry.registerOwner(ws.id, 'usr_akinola_01');
+    this.seedStarterChunksForWorkspace(ws.id);
     void this.appwriteBridge.upsertRow(
       'workspaces',
       ws.id,

@@ -13,6 +13,7 @@ import {
 } from 'firebase/auth';
 import firebaseConfig from '../../firebase-applet-config.json';
 import { exchangeCustomTokenForAppwriteSession } from './appwriteClient.ts';
+import type { Workspace } from '../types/agba.ts';
 
 /**
  * ADR-008 Identity-Only Firebase Auth Client:
@@ -29,6 +30,7 @@ export interface BridgedSessionSummary {
   email: string;
   displayName?: string;
   workspaceName?: string;
+  createdWorkspace?: Workspace | null;
   emailVerified: boolean;
   identityProvider: 'firebase' | 'appwrite';
 }
@@ -107,6 +109,9 @@ export async function signInWithEmail(
   email: string,
   password: string
 ): Promise<BridgedSessionSummary> {
+  if (!password || password.length < 6) {
+    throw new Error('Password must be at least 6 characters.');
+  }
   try {
     const cred = await signInWithEmailAndPassword(auth, email.trim(), password);
     const bridged = await bridgeFirebaseUserToAppwrite(cred.user);
@@ -121,7 +126,7 @@ export async function signInWithEmail(
     setStoredAgbaSession(fallback);
     return fallback;
   } catch {
-    // Seamless Express session bridge if Firebase email/password provider is not yet toggled in console
+    // Express session bridge with strict server-side scrypt password verification
     const res = await fetch('/api/auth/email-session', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

@@ -57,16 +57,40 @@ export const AuthView: React.FC<AuthViewProps> = ({
       onAuthSuccess({
         appwriteUserId: `usr_${user.uid.slice(0, 12)}`,
         email: user.email || '',
-        displayName: user.displayName || 'AGBA Builder',
+        displayName: user.displayName || fullName.trim() || 'AGBA Builder',
+        workspaceName: workspaceName.trim() || undefined,
         emailVerified: true,
         identityProvider: 'firebase',
       });
-    } catch (err) {
+    } catch {
+      // Never allow passwordless email sign-in. If the user already entered both email AND a valid password (>= 6 chars), verify with email + password:
+      if (email.trim().includes('@') && password.length >= 6) {
+        try {
+          const session =
+            mode === 'signup'
+              ? await signUpWithEmail({
+                  fullName: fullName.trim() || email.split('@')[0],
+                  email: email.trim(),
+                  password,
+                  workspaceName: workspaceName.trim() || undefined,
+                })
+              : await signInWithEmail(email.trim(), password);
+          onAuthSuccess(session);
+          return;
+        } catch (authErr) {
+          setErrorMessage(
+            authErr instanceof Error ? authErr.message : 'Invalid email or password.'
+          );
+          return;
+        }
+      }
+
       setErrorMessage(
-        err instanceof Error && !err.message.includes('popup-closed')
-          ? 'Google sign-in popup was blocked or interrupted. You can sign in directly with your email and password below.'
-          : 'Sign-in cancelled. Use email and password below or try again.'
+        'Google popup is blocked or unauthorized on this domain. For your security, please enter both your email address and password (minimum 6 characters) below.'
       );
+      const targetInputId = email.trim() ? 'auth-password' : 'auth-email';
+      const el = document.getElementById(targetInputId);
+      if (el) el.focus();
     } finally {
       setIsLoading(false);
     }
@@ -309,7 +333,7 @@ export const AuthView: React.FC<AuthViewProps> = ({
 
                 <div className="my-5 flex items-center gap-3 text-xs opacity-60">
                   <div className="h-px flex-1 bg-current/20" />
-                  <span>or continue with email</span>
+                  <span>or continue with email &amp; password</span>
                   <div className="h-px flex-1 bg-current/20" />
                 </div>
               </>

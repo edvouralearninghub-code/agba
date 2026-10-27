@@ -638,7 +638,7 @@ export class AppwriteTablesBridge {
       const versionRes = await fetch(`${this.endpoint}/health/version`, {
         method: 'GET',
         headers: { 'X-Appwrite-Project': this.projectId },
-        signal: AbortSignal.timeout(4000),
+        signal: AbortSignal.timeout(2000),
       });
 
       let version = '2.6.1';
@@ -653,7 +653,7 @@ export class AppwriteTablesBridge {
         const dbRes = await fetch(`${this.endpoint}/databases`, {
           method: 'GET',
           headers: this.headers,
-          signal: AbortSignal.timeout(4000),
+          signal: AbortSignal.timeout(2000),
         });
 
         if (dbRes.ok) {
@@ -718,12 +718,14 @@ export class AppwriteTablesBridge {
           email: params.email,
           name: params.name,
         }),
+        signal: AbortSignal.timeout(2000),
       });
       if (params.emailVerified) {
         await fetch(`${this.endpoint}/users/${encodeURIComponent(params.userId)}/verification`, {
           method: 'PATCH',
           headers: this.headers,
           body: JSON.stringify({ emailVerification: true }),
+          signal: AbortSignal.timeout(2000),
         });
       }
     } catch {
@@ -738,6 +740,7 @@ export class AppwriteTablesBridge {
         method: 'PATCH',
         headers: this.headers,
         body: JSON.stringify({ email: newEmail }),
+        signal: AbortSignal.timeout(2000),
       });
     } catch {
       // Handled gracefully when offline
@@ -762,6 +765,7 @@ export class AppwriteTablesBridge {
         method: 'POST',
         headers: this.headers,
         body: JSON.stringify({ length, expire: expireSeconds }),
+        signal: AbortSignal.timeout(2000),
       });
       if (res.ok) {
         const data = (await res.json()) as { secret?: string; expire?: string };
@@ -789,10 +793,12 @@ export class AppwriteTablesBridge {
       await fetch(`${this.endpoint}/users/${encodeURIComponent(userId)}/sessions`, {
         method: 'DELETE',
         headers: this.headers,
+        signal: AbortSignal.timeout(2000),
       });
       await fetch(`${this.endpoint}/users/${encodeURIComponent(userId)}`, {
         method: 'DELETE',
         headers: this.headers,
+        signal: AbortSignal.timeout(2000),
       });
     } catch {
       // Ignore if user already removed
@@ -817,6 +823,7 @@ export class AppwriteTablesBridge {
             data,
             permissions,
           }),
+          signal: AbortSignal.timeout(2000),
         }
       );
       if (putRes.ok) return true;
@@ -832,6 +839,7 @@ export class AppwriteTablesBridge {
             data,
             permissions,
           }),
+          signal: AbortSignal.timeout(2000),
         }
       );
       return postRes.ok || postRes.status === 409;
@@ -848,6 +856,7 @@ export class AppwriteTablesBridge {
         {
           method: 'DELETE',
           headers: this.headers,
+          signal: AbortSignal.timeout(2000),
         }
       );
       return res.ok;

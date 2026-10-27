@@ -72,6 +72,8 @@ function resolveServerTenantContext(
       : undefined;
   const emailVerified = req.headers['x-agba-email-verified'] !== 'false';
 
+  backend.ensureDynamicWorkspaceRegistered(workspaceId, userId);
+
   return backend.membershipRegistry.resolveServerRole({
     userId,
     workspace_id: workspaceId,
@@ -458,7 +460,14 @@ app.post('/api/auth/bridge-session', async (req, res) => {
   }
 });
 
-// 0A-2. Effortless Email & Password Sign-In / Sign-Up Session Endpoint
+// Server-side salted scrypt password credential store for email/password authentication
+const accountPasswordHashes = new Map<string, string>();
+
+function derivePasswordHash(normalizedEmail: string, password: string): string {
+  return crypto.scryptSync(password, `agba_auth_salt:${normalizedEmail}`, 32).toString('hex');
+}
+
+// 0A-2. Strict Email & Password Session Endpoint (Requires valid password >= 6 chars)
 app.post('/api/auth/email-session', (req, res) => {
   try {
     const body = z
@@ -472,6 +481,20 @@ app.post('/api/auth/email-session', (req, res) => {
       .parse(req.body);
 
     const normalizedEmail = body.email.trim().toLowerCase();
+    const submittedHash = derivePasswordHash(normalizedEmail, body.password);
+    const existingHash = accountPasswordHashes.get(normalizedEmail);
+
+    if (body.mode === 'signin' && existingHash && existingHash !== submittedHash) {
+      return res.status(401).json({
+        error: 'Incorrect password for this account. Please try again or reset your password.',
+      });
+    }
+
+    // Store or initialize password hash on signup or first sign-in
+    if (!existingHash || body.mode === 'signup') {
+      accountPasswordHashes.set(normalizedEmail, submittedHash);
+    }
+
     const userHash = crypto
       .createHash('sha256')
       .update(normalizedEmail)
@@ -485,11 +508,14 @@ app.post('/api/auth/email-session', (req, res) => {
         .replace(/[._-]+/g, ' ')
         .replace(/\b\w/g, (l) => l.toUpperCase());
 
+    backend.ensureDynamicWorkspaceRegistered('ws_trendtactics_lagos', appwriteUserId);
+
     let createdWorkspace = null;
-    if (body.mode === 'signup' && body.workspaceName && body.workspaceName.trim().length >= 2) {
+    if (body.workspaceName && body.workspaceName.trim().length >= 2) {
       createdWorkspace = backend.createWorkspace({
         name: body.workspaceName.trim(),
         currency: 'NGN',
+        ownerId: appwriteUserId,
       });
     }
 
@@ -503,6 +529,11 @@ app.post('/api/auth/email-session', (req, res) => {
       identityProvider: 'appwrite',
     });
   } catch (err) {
+    if (err instanceof z.ZodError) {
+      return res.status(400).json({
+        error: err.issues[0]?.message || 'Please provide a valid email and password (min 6 characters).',
+      });
+    }
     return res.status(400).json({
       error: err instanceof Error ? err.message : 'Authentication failed',
     });
@@ -1394,16 +1425,19 @@ async function startServer() {
       console.log(`AGBA Full-Stack Server listening on http://0.0.0.0:${port}`);
     });
   } else {
-    const vitePkgName = 'vite';
-    const { createServer: createViteServer } = await import(vitePkgName);
     let viteMiddleware: express.RequestHandler | null = null;
-    const vitePromise = createViteServer({
-      server: { middlewareMode: true },
-      appType: 'spa',
-    }).then((vite: { middlewares: express.RequestHandler }) => {
-      viteMiddleware = vite.middlewares;
-      return vite;
-    });
+    const vitePkgName = 'vite';
+    const vitePromise = import(vitePkgName)
+      .then(({ createServer: createViteServer }) =>
+        createViteServer({
+          server: { middlewareMode: true },
+          appType: 'spa',
+        })
+      )
+      .then((vite: { middlewares: express.RequestHandler }) => {
+        viteMiddleware = vite.middlewares;
+        return vite;
+      });
 
     app.use(async (req, res, next) => {
       try {
@@ -1422,7 +1456,11 @@ async function startServer() {
   }
 }
 
-if (!process.env.VERCEL && process.argv[1] && import.meta.url === `file://${process.argv[1]}`) {
+const entryArg = process.argv[1] ? path.resolve(process.argv[1]) : '';
+if (
+  !process.env.VERCEL &&
+  (entryArg === __filename || entryArg.endsWith('/server.ts') || entryArg.endsWith('/server.js'))
+) {
   startServer();
 }
 

@@ -261,7 +261,13 @@ export default function App() {
         onBackToHome={() => setViewMode('marketing')}
         onAuthSuccess={(session) => {
           setAgbaSession(session);
-          if (session.workspaceName && session.workspaceName.trim().length >= 2) {
+          if (session.createdWorkspace) {
+            const serverWs = session.createdWorkspace;
+            setWorkspaces((prev) =>
+              prev.some((w) => w.id === serverWs.id) ? prev : [serverWs, ...prev]
+            );
+            setActiveWorkspaceId(serverWs.id);
+          } else if (session.workspaceName && session.workspaceName.trim().length >= 2) {
             const slug = session.workspaceName
               .trim()
               .toLowerCase()
