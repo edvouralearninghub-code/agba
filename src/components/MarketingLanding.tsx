@@ -32,6 +32,7 @@ interface MarketingLandingProps {
   onEnterBilling: () => void;
   onEnterSettings?: () => void;
   onEnterAuth?: (mode?: 'signin' | 'signup') => void;
+  onEnterAbout?: () => void;
   onEnterPublicChat: () => void;
   onOpenTemplateInStudio: (tpl: AcademyTemplate) => void;
   isDark: boolean;
@@ -45,6 +46,7 @@ export const MarketingLanding: React.FC<MarketingLandingProps> = ({
   onEnterBilling,
   onEnterSettings,
   onEnterAuth,
+  onEnterAbout,
   onEnterPublicChat,
   onOpenTemplateInStudio,
   isDark,
@@ -351,6 +353,15 @@ export const MarketingLanding: React.FC<MarketingLandingProps> = ({
                 </div>
               );
             })}
+            {onEnterAbout && (
+              <button
+                type="button"
+                onClick={onEnterAbout}
+                className="py-1 opacity-85 hover:opacity-100 transition-opacity whitespace-nowrap shrink-0 font-semibold text-[#C89D3C]"
+              >
+                About &amp; What AGBA Does
+              </button>
+            )}
           </nav>
 
           <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">

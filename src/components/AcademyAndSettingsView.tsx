@@ -2,24 +2,20 @@ import React, { useState, useEffect } from 'react';
 import {
   ArrowRight,
   KeyRound,
-  ShieldCheck,
   CheckCircle2,
-  AlertCircle,
   Lock,
-  RefreshCw,
   Server,
   Bell,
   Plus,
-  Copy,
-  Check,
-  Database,
+  Trash2,
+  Play,
+  Activity,
 } from 'lucide-react';
 import { ACADEMY_TEMPLATES } from '../data/academyTemplates.ts';
 import type {
   AcademyTemplate,
   MaskedModelKeyRecord,
   ModelProvider,
-  SecurityTestSuiteReport,
   Workspace,
 } from '../types/agba.ts';
 
@@ -38,6 +34,10 @@ export const AcademyView: React.FC<AcademyViewProps> = ({
     'All' | 'Starter' | 'RAG Tutorial' | 'Advanced Multi-Agent'
   >(initialTrack);
   const [runtimeMode, setRuntimeMode] = useState<'hosted' | 'ollama'>('hosted');
+  const [runningTplId, setRunningTplId] = useState<string | null>(null);
+  const [quickResults, setQuickResults] = useState<
+    Record<string, { answer: string; durationMs: number; modelUsed: string }>
+  >({});
 
   useEffect(() => {
     setSelectedTrack(initialTrack);
@@ -47,26 +47,54 @@ export const AcademyView: React.FC<AcademyViewProps> = ({
     (t) => selectedTrack === 'All' || t.track === selectedTrack
   );
 
+  const handleQuickRunTemplate = async (tpl: AcademyTemplate) => {
+    setRunningTplId(tpl.id);
+    try {
+      const res = await fetch('/api/studio/run', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          workspace_id: 'ws_trendtactics_lagos',
+          appId: `app_${tpl.id}`,
+          appName: tpl.title,
+          prompt: tpl.samplePrompt,
+          provider: runtimeMode === 'ollama' ? 'ollama' : 'gemini',
+          allowedTools: tpl.allowedTools,
+          activeTool: tpl.allowedTools[0],
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setQuickResults((prev) => ({
+          ...prev,
+          [tpl.id]: {
+            answer: data.answer,
+            durationMs: data.durationMs,
+            modelUsed: data.modelUsed,
+          },
+        }));
+      }
+    } catch {
+      // ignore
+    } finally {
+      setRunningTplId(null);
+    }
+  };
+
   return (
-    <div className="mx-auto max-w-[1200px] px-4 py-8 sm:px-6 lg:px-8">
-      <div className="mb-8 flex flex-col justify-between gap-4 border-b border-current/10 pb-6 md:flex-row md:items-end">
+    <div className="mx-auto max-w-[1200px] px-4 py-6 sm:px-6 lg:px-8">
+      <div className="mb-6 flex flex-col justify-between gap-4 border-b border-current/10 pb-5 md:flex-row md:items-end">
         <div>
           <div className="flex items-center gap-2 text-xs opacity-75">
-            <span>AGBA Academy</span>
+            <span>AGBA Template Library</span>
             <span aria-hidden="true">·</span>
             <span className="font-mono tabular-nums">
-              {ACADEMY_TEMPLATES.length} ready-to-run templates
+              {ACADEMY_TEMPLATES.length} executable workflows
             </span>
-            <span aria-hidden="true">·</span>
-            <span>Hosted Model Keys &amp; Local Llama compatible</span>
           </div>
-          <h1 className="font-display mt-2 text-2xl font-bold sm:text-3xl">
-            Learn by Inspecting &amp; Running Real Agents
+          <h1 className="font-display mt-1.5 text-2xl font-bold">
+            Run or Import Pre-Built AI Workflows
           </h1>
-          <p className="mt-2 max-w-2xl text-sm opacity-85">
-            Every tutorial below is a working multi-step workflow. Click &ldquo;Open in Studio&rdquo;
-            to import its steps, instructions, and tools directly into your workspace.
-          </p>
         </div>
 
         {/* Hosted vs Local Llama Runtime Toggle */}
@@ -84,7 +112,7 @@ export const AcademyView: React.FC<AcademyViewProps> = ({
                 : 'opacity-75 hover:opacity-100'
             }`}
           >
-            Hosted API Keys (Gemini / OpenAI)
+            Cloud API Keys (Gemini / OpenAI)
           </button>
           <button
             type="button"
@@ -107,7 +135,7 @@ export const AcademyView: React.FC<AcademyViewProps> = ({
             key={track}
             type="button"
             onClick={() => setSelectedTrack(track)}
-            className={`rounded-lg border px-3.5 py-2 text-xs font-medium transition-colors whitespace-nowrap shrink-0 ${
+            className={`rounded-lg border px-3.5 py-1.5 text-xs font-medium transition-colors whitespace-nowrap shrink-0 ${
               selectedTrack === track
                 ? isDark
                   ? 'border-[#D9A441] bg-[#1B1F5E] text-[#D9A441]'
@@ -121,57 +149,84 @@ export const AcademyView: React.FC<AcademyViewProps> = ({
       </div>
 
       {/* Templates Grid */}
-      <div className="grid gap-6 md:grid-cols-2">
-        {filtered.map((tpl, index) => (
-          <article
-            key={tpl.id}
-            className={`flex flex-col justify-between rounded-xl border p-6 transition-colors ${
-              isDark
-                ? 'border-white/10 bg-[#1B1F5E]/30 hover:border-white/25'
-                : 'border-[#0F1226]/10 bg-white hover:border-[#0F1226]/25'
-            }`}
-          >
-            <div>
-              <div className="flex flex-wrap items-center gap-2 text-xs opacity-70">
-                <span className="font-mono">0{index + 1}</span>
-                <span aria-hidden="true">·</span>
-                <span>{tpl.track}</span>
-                <span aria-hidden="true">·</span>
-                <span className="font-mono tabular-nums">{tpl.estimatedMinutes} min build</span>
-                <span aria-hidden="true">·</span>
-                <span className="font-mono tabular-nums">{tpl.nodes.length} steps</span>
-              </div>
-
-              <h2 className="font-display mt-2 text-xl font-semibold">{tpl.title}</h2>
-              <p className="mt-2 text-sm leading-relaxed opacity-85">{tpl.summary}</p>
-
-              <div className="mt-4 space-y-1.5 border-t border-current/10 pt-3 text-xs opacity-80">
-                <div>
-                  <span className="font-semibold">Recommended Model: </span>
+      <div className="grid gap-5 md:grid-cols-2">
+        {filtered.map((tpl, index) => {
+          const result = quickResults[tpl.id];
+          const isRunningThis = runningTplId === tpl.id;
+          return (
+            <article
+              key={tpl.id}
+              className={`flex flex-col justify-between rounded-xl border p-5 transition-colors ${
+                isDark
+                  ? 'border-white/10 bg-[#1B1F5E]/30 hover:border-white/25'
+                  : 'border-[#0F1226]/10 bg-white hover:border-[#0F1226]/25'
+              }`}
+            >
+              <div>
+                <div className="flex flex-wrap items-center gap-2 text-xs opacity-70">
+                  <span className="font-mono">0{index + 1}</span>
+                  <span aria-hidden="true">·</span>
+                  <span>{tpl.track}</span>
+                  <span aria-hidden="true">·</span>
                   <span className="font-mono">
-                    {runtimeMode === 'ollama' ? 'Llama 3.2 (Local Ollama)' : tpl.recommendedModel}
+                    {runtimeMode === 'ollama' ? 'Llama 3.2 (Ollama)' : tpl.recommendedModel}
                   </span>
                 </div>
-                <div>
-                  <span className="font-semibold">Enabled Tools: </span>
-                  <span className="font-mono">{tpl.allowedTools.join(' · ')}</span>
-                </div>
-              </div>
-            </div>
 
-            <div className="mt-6 flex items-center justify-between border-t border-current/10 pt-4">
-              <span className="text-xs opacity-70">Imports directly into Studio canvas</span>
-              <button
-                type="button"
-                onClick={() => onImportTemplate(tpl)}
-                className="inline-flex items-center gap-2 rounded-lg bg-[#D9A441] px-4 py-2 text-xs font-semibold text-[#0F1226] transition-colors hover:bg-[#c89332] whitespace-nowrap shrink-0"
-              >
-                <span>Open in Studio</span>
-                <ArrowRight className="h-3.5 w-3.5" />
-              </button>
-            </div>
-          </article>
-        ))}
+                <h2 className="font-display mt-1.5 text-lg font-bold">{tpl.title}</h2>
+                <p className="mt-1.5 text-xs leading-relaxed opacity-85">{tpl.summary}</p>
+
+                <div
+                  className={`mt-3 rounded-lg border p-2.5 text-xs ${
+                    isDark
+                      ? 'border-white/10 bg-[#0E1030]/70'
+                      : 'border-[#0F1226]/10 bg-[#FAF6EC]/60'
+                  }`}
+                >
+                  <span className="font-semibold opacity-75">Sample Input: </span>
+                  <span className="italic">“{tpl.samplePrompt}”</span>
+                </div>
+
+                {result && (
+                  <div
+                    className={`mt-3 rounded-lg border border-[#2E8B57]/40 p-3 text-xs ${
+                      isDark ? 'bg-[#0E1030]' : 'bg-[#FAF6EC]/80'
+                    }`}
+                  >
+                    <div className="mb-1 flex items-center justify-between font-mono text-[11px] font-semibold text-[#2E8B57]">
+                      <span>Live Output ({result.modelUsed})</span>
+                      <span>{result.durationMs}ms</span>
+                    </div>
+                    <p className="line-clamp-4 whitespace-pre-line text-xs leading-relaxed opacity-90">
+                      {result.answer}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-current/10 pt-3.5">
+                <button
+                  type="button"
+                  disabled={isRunningThis}
+                  onClick={() => void handleQuickRunTemplate(tpl)}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-current/20 px-3 py-1.5 text-xs font-semibold hover:bg-current/5 disabled:opacity-50"
+                >
+                  <Play className="h-3.5 w-3.5 text-[#2E8B57]" />
+                  <span>{isRunningThis ? 'Running…' : 'Test Run Here'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => onImportTemplate(tpl)}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-[#D9A441] px-3.5 py-1.5 text-xs font-bold text-[#0F1226] transition-colors hover:bg-[#c89332]"
+                >
+                  <span>Open in Studio</span>
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            </article>
+          );
+        })}
       </div>
     </div>
   );
@@ -181,13 +236,6 @@ interface BackendOverviewPayload {
   storageEngine: string;
   requiresExternalCloudKeys: boolean;
   activeWorkspaceId: string;
-  openSourceModules: {
-    name: string;
-    repo: string;
-    license: string;
-    status: string;
-    recordsCount: number;
-  }[];
   workspaces: Workspace[];
   maskedKeys: MaskedModelKeyRecord[];
   recentRuns: {
@@ -225,10 +273,11 @@ export const SettingsAndSecurityView: React.FC<SettingsAndSecurityViewProps> = (
   onNavigateModule,
   isDark,
 }) => {
-  const [provider, setProvider] = useState<ModelProvider>('openai');
+  const [provider, setProvider] = useState<ModelProvider>('gemini');
   const [label, setLabel] = useState<string>('Production Assistant Key');
   const [rawKeyInput, setRawKeyInput] = useState<string>('');
   const [keyNotice, setKeyNotice] = useState<string | null>(null);
+  const [keyError, setKeyError] = useState<string | null>(null);
 
   const [newWorkspaceName, setNewWorkspaceName] = useState<string>('');
   const [newWorkspaceCurrency, setNewWorkspaceCurrency] = useState<'NGN' | 'USD'>('NGN');
@@ -256,7 +305,7 @@ export const SettingsAndSecurityView: React.FC<SettingsAndSecurityViewProps> = (
   };
 
   useEffect(() => {
-    loadBackendData();
+    void loadBackendData();
   }, [activeWorkspace.id, activeWorkspace.memberRole]);
 
   const handleCreateWorkspace = async (e: React.FormEvent) => {
@@ -276,7 +325,7 @@ export const SettingsAndSecurityView: React.FC<SettingsAndSecurityViewProps> = (
       setNewWorkspaceName('');
       setWorkspaceNotice(`Created workspace "${data.name}" and switched to it.`);
       if (onWorkspaceCreated) onWorkspaceCreated(data);
-      loadBackendData();
+      void loadBackendData();
     } else {
       setWorkspaceNotice(data.error || 'Failed to create workspace');
     }
@@ -285,8 +334,9 @@ export const SettingsAndSecurityView: React.FC<SettingsAndSecurityViewProps> = (
   const handleSaveKey = async (e: React.FormEvent) => {
     e.preventDefault();
     setKeyNotice(null);
+    setKeyError(null);
     if (rawKeyInput.trim().length < 8) {
-      setKeyNotice('Key must be at least 8 characters.');
+      setKeyError('API Key must be at least 8 characters.');
       return;
     }
 
@@ -301,269 +351,310 @@ export const SettingsAndSecurityView: React.FC<SettingsAndSecurityViewProps> = (
         workspace_id: activeWorkspace.id,
         provider,
         label,
-        rawApiKey: rawKeyInput,
+        rawApiKey: rawKeyInput.trim(),
       }),
     });
     const data = await res.json();
     if (!res.ok) {
-      setKeyNotice(`Unable to save key: ${data.error}`);
+      setKeyError(data.error || 'Unable to save key.');
       return;
     }
 
-    onAddMaskedKey(provider, label, rawKeyInput);
+    onAddMaskedKey(provider, label, rawKeyInput.trim());
     setRawKeyInput('');
     setKeyNotice(`Encrypted and saved key as "${data.maskedKey}".`);
-    loadBackendData();
+    void loadBackendData();
   };
 
-  // Only display keys explicitly added by the user in their session
-  const displayedKeys = modelKeys.filter((k) => k.workspace_id === activeWorkspace.id);
+  const handleDeleteKey = async (keyId: string) => {
+    try {
+      const res = await fetch(
+        `/api/backend/keys/${encodeURIComponent(keyId)}?workspace_id=${encodeURIComponent(
+          activeWorkspace.id
+        )}`,
+        {
+          method: 'DELETE',
+          headers: {
+            'x-agba-workspace-id': activeWorkspace.id,
+            'x-agba-role': activeWorkspace.memberRole,
+          },
+        }
+      );
+      if (res.ok) {
+        void loadBackendData();
+      }
+    } catch {
+      // ignore
+    }
+  };
+
+  const serverKeys = (backendOverview?.maskedKeys || []).filter(
+    (k) => k.id !== 'key_seed_gemini' && k.id !== 'key_seed_openai'
+  );
+  const sessionKeys = modelKeys.filter(
+    (k) =>
+      k.workspace_id === activeWorkspace.id &&
+      !serverKeys.some((sk) => sk.maskedKey === k.maskedKey && sk.label === k.label)
+  );
+  const displayedKeys = [...serverKeys, ...sessionKeys];
 
   return (
-    <div className="mx-auto max-w-[1200px] space-y-10 px-4 py-8 sm:px-6 lg:px-8">
-      {/* Header + Action-First User Guide */}
-      <div className="border-b border-current/10 pb-6">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <div className="flex flex-wrap items-center gap-2 text-xs opacity-75">
-              <span>Workspace Settings</span>
-              <span aria-hidden="true">·</span>
-              <span>{activeWorkspace.name}</span>
-              <span aria-hidden="true">·</span>
-              <span className="capitalize">Role: {activeWorkspace.memberRole}</span>
-            </div>
-            <h1 className="font-display mt-2 text-2xl font-bold sm:text-3xl">
-              Connect AI Keys &amp; Manage Team Workspaces
-            </h1>
-            <p className="mt-1 max-w-2xl text-xs opacity-80">
-              Add your AI provider key in Step 1, create a workspace for your project in Step 2, and open Studio to build and publish your assistant.
-            </p>
+    <div className="mx-auto max-w-[1200px] space-y-8 px-4 py-6 sm:px-6 lg:px-8">
+      {/* Header */}
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-current/10 pb-5">
+        <div>
+          <div className="flex flex-wrap items-center gap-2 text-xs opacity-75">
+            <span>Workspace Settings</span>
+            <span aria-hidden="true">·</span>
+            <span>{activeWorkspace.name}</span>
+            <span aria-hidden="true">·</span>
+            <span className="capitalize">Role: {activeWorkspace.memberRole}</span>
           </div>
-          {onNavigateModule && (
-            <button
-              type="button"
-              onClick={() => onNavigateModule('studio')}
-              className="inline-flex items-center gap-2 rounded-xl bg-[#D9A441] px-4 py-2.5 text-xs font-semibold text-[#0F1226] hover:bg-[#c89332] whitespace-nowrap shrink-0"
-            >
-              <span>Open AI Studio &amp; Build App</span>
-              <ArrowRight className="h-4 w-4" />
-            </button>
-          )}
+          <h1 className="font-display mt-1.5 text-2xl font-bold">
+            API Keys (BYOK), Team Workspaces &amp; Execution Logs
+          </h1>
         </div>
+        {onNavigateModule && (
+          <button
+            type="button"
+            onClick={() => onNavigateModule('studio')}
+            className="inline-flex items-center gap-2 rounded-xl bg-[#D9A441] px-4 py-2 text-xs font-bold text-[#0F1226] hover:bg-[#c89332]"
+          >
+            <span>Back to Studio Workbench</span>
+            <ArrowRight className="h-4 w-4" />
+          </button>
+        )}
       </div>
 
       {/* Section 1: BYOK Model Connections */}
-      <section className="grid gap-8 lg:grid-cols-12">
-        <div className="lg:col-span-5">
-          <div className="flex items-center gap-2 text-sm font-semibold">
+      <section className="grid gap-6 lg:grid-cols-12">
+        <div
+          className={`rounded-2xl border p-5 lg:col-span-5 ${
+            isDark ? 'border-white/10 bg-[#141742]/70' : 'border-[#0F1226]/10 bg-white'
+          }`}
+        >
+          <div className="flex items-center gap-2 text-sm font-bold">
             <KeyRound className="h-4 w-4 text-[#D9A441]" />
-            <h2>Step 1: Connect Your AI Provider Key (BYOK)</h2>
+            <h2>Connect Provider API Key (AES-256-GCM)</h2>
           </div>
-          <p className="mt-2 text-xs leading-relaxed opacity-80">
-            Connect your own OpenAI, Anthropic, Google Gemini, Mistral, or local Ollama endpoint.
-            Your key is encrypted on save and never exposed in plain text.
-          </p>
 
           <form onSubmit={handleSaveKey} className="mt-4 space-y-3 text-xs">
             <div>
-              <label className="mb-1 block font-medium">Model Provider</label>
+              <label className="mb-1 block font-semibold">AI Provider</label>
               <select
                 value={provider}
                 onChange={(e) => setProvider(e.target.value as ModelProvider)}
-                className={`w-full rounded-lg border px-3 py-2 ${
+                className={`w-full rounded-lg border px-3 py-2 font-semibold ${
                   isDark
-                    ? 'border-white/15 bg-[#1B1F5E] text-[#FAF6EC]'
-                    : 'border-[#0F1226]/15 bg-white text-[#0F1226]'
+                    ? 'border-white/15 bg-[#0E1030] text-[#FAF6EC]'
+                    : 'border-[#0F1226]/15 bg-[#FAF6EC]/60 text-[#0F1226]'
                 }`}
               >
-                <option value="openai">OpenAI</option>
-                <option value="anthropic">Anthropic</option>
                 <option value="gemini">Google Gemini</option>
+                <option value="openai">OpenAI</option>
+                <option value="anthropic">Anthropic Claude</option>
                 <option value="mistral">Mistral AI</option>
-                <option value="ollama">Ollama / Local Llama Endpoint</option>
+                <option value="ollama">Local Ollama Endpoint</option>
               </select>
             </div>
             <div>
-              <label className="mb-1 block font-medium">Connection Label</label>
+              <label className="mb-1 block font-semibold">Connection Label</label>
               <input
                 type="text"
                 value={label}
                 onChange={(e) => setLabel(e.target.value)}
                 className={`w-full rounded-lg border px-3 py-2 ${
                   isDark
-                    ? 'border-white/15 bg-[#1B1F5E] text-[#FAF6EC]'
-                    : 'border-[#0F1226]/15 bg-white text-[#0F1226]'
+                    ? 'border-white/15 bg-[#0E1030] text-[#FAF6EC]'
+                    : 'border-[#0F1226]/15 bg-[#FAF6EC]/60 text-[#0F1226]'
                 }`}
               />
             </div>
             <div>
-              <label className="mb-1 block font-medium">
-                API Key or Local Endpoint Token (Masked on Save)
-              </label>
+              <label className="mb-1 block font-semibold">API Key (Encrypted on Save)</label>
               <input
                 type="password"
                 value={rawKeyInput}
                 onChange={(e) => setRawKeyInput(e.target.value)}
-                placeholder="Enter your provider API key..."
+                placeholder="AIza... or sk-..."
                 className={`w-full rounded-lg border px-3 py-2 font-mono ${
                   isDark
-                    ? 'border-white/15 bg-[#1B1F5E] text-[#FAF6EC]'
-                    : 'border-[#0F1226]/15 bg-white text-[#0F1226]'
+                    ? 'border-white/15 bg-[#0E1030] text-[#FAF6EC]'
+                    : 'border-[#0F1226]/15 bg-[#FAF6EC]/60 text-[#0F1226]'
                 }`}
               />
             </div>
             <button
               type="submit"
-              className="inline-flex items-center gap-2 rounded-lg bg-[#D9A441] px-4 py-2 text-xs font-semibold text-[#0F1226] hover:bg-[#c89332]"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#D9A441] px-4 py-2.5 text-xs font-bold text-[#0F1226] hover:bg-[#c89332]"
             >
               <Lock className="h-3.5 w-3.5" />
-              Encrypt &amp; Save Connection
+              <span>Encrypt &amp; Save Key</span>
             </button>
             {keyNotice && (
-              <p className="text-[11px] font-medium text-[#2E8B57] dark:text-[#D9A441]">
-                {keyNotice}
-              </p>
+              <div className="flex items-center gap-1.5 text-xs font-semibold text-[#2E8B57]">
+                <CheckCircle2 className="h-3.5 w-3.5" />
+                <span>{keyNotice}</span>
+              </div>
             )}
+            {keyError && <p className="text-xs font-semibold text-[#C84B31]">{keyError}</p>}
           </form>
         </div>
 
-        <div className="lg:col-span-7">
-          <div
-            className={`rounded-xl border p-5 ${
-              isDark ? 'border-white/10 bg-[#1B1F5E]/25' : 'border-[#0F1226]/10 bg-white'
-            }`}
-          >
-            <div className="mb-3 flex items-center justify-between">
-              <h3 className="text-xs font-semibold">
-                Your Connected Model Keys ({displayedKeys.length})
-              </h3>
-              <span className="text-[11px] opacity-65">{activeWorkspace.name}</span>
-            </div>
-
-            {displayedKeys.length === 0 ? (
-              <div className="rounded-lg border border-dashed border-current/15 p-6 text-center text-xs opacity-75">
-                No personal API keys added to <span className="font-semibold">{activeWorkspace.name}</span> yet. Add your Gemini, OpenAI, Anthropic, Mistral, or Ollama key on the left to connect your model.
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead>
-                    <tr className="border-b border-current/10 opacity-70">
-                      <th className="py-2 pr-3">Provider</th>
-                      <th className="px-3 py-2">Label</th>
-                      <th className="px-3 py-2">Masked Key</th>
-                      <th className="py-2 pl-3 text-right">Protection</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-current/10">
-                    {displayedKeys.map((rec) => (
-                      <tr key={rec.id}>
-                        <td className="py-3 pr-3 font-semibold uppercase">{rec.provider}</td>
-                        <td className="px-3 py-3">{rec.label}</td>
-                        <td className="px-3 py-3 font-mono">{rec.maskedKey}</td>
-                        <td className="py-3 pl-3 text-right text-[11px] font-medium text-[#2E8B57] dark:text-[#D9A441]">
-                          Encrypted
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+        <div
+          className={`rounded-2xl border p-5 lg:col-span-7 ${
+            isDark ? 'border-white/10 bg-[#141742]/70' : 'border-[#0F1226]/10 bg-white'
+          }`}
+        >
+          <div className="mb-3 flex items-center justify-between">
+            <h3 className="text-sm font-bold">
+              Connected Workspace Keys ({displayedKeys.length})
+            </h3>
+            <span className="font-mono text-xs opacity-70">{activeWorkspace.name}</span>
           </div>
+
+          {displayedKeys.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-current/15 p-8 text-center text-xs opacity-75">
+              No custom API keys saved in <strong>{activeWorkspace.name}</strong> yet. Add a Gemini,
+              OpenAI, Claude, Mistral, or Ollama key on the left.
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="border-b border-current/10 opacity-70">
+                    <th className="py-2 pr-3">Provider</th>
+                    <th className="px-3 py-2">Label</th>
+                    <th className="px-3 py-2">Masked Key</th>
+                    <th className="py-2 pl-3 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-current/10">
+                  {displayedKeys.map((rec) => (
+                    <tr key={rec.id}>
+                      <td className="py-3 pr-3 font-mono font-bold uppercase">{rec.provider}</td>
+                      <td className="px-3 py-3">{rec.label}</td>
+                      <td className="px-3 py-3 font-mono text-[#2E8B57]">{rec.maskedKey}</td>
+                      <td className="py-3 pl-3 text-right">
+                        <button
+                          type="button"
+                          onClick={() => void handleDeleteKey(rec.id)}
+                          className="inline-flex items-center gap-1 rounded border border-current/15 px-2 py-1 text-[11px] hover:border-[#C84B31] hover:text-[#C84B31]"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                          <span>Revoke</span>
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </section>
 
-      {/* Section 2: Team Workspaces & Project Activity */}
-      <section className="space-y-4 border-t border-current/10 pt-8">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-2 text-sm font-semibold">
+      {/* Section 2: Create Workspace & Live Execution History */}
+      <section className="grid gap-6 lg:grid-cols-12">
+        <form
+          onSubmit={handleCreateWorkspace}
+          className={`space-y-3 rounded-2xl border p-5 text-xs lg:col-span-5 ${
+            isDark ? 'border-white/10 bg-[#141742]/70' : 'border-[#0F1226]/10 bg-white'
+          }`}
+        >
+          <div className="flex items-center gap-2 text-sm font-bold">
             <Server className="h-4 w-4 text-[#D9A441]" />
-            <h2>Step 2: Team Workspaces &amp; Project Activity</h2>
+            <h2>Create New Isolated Workspace</h2>
           </div>
-          <span className="text-xs opacity-75">
-            Each workspace isolates its own AI keys, uploaded PDFs, and published apps
-          </span>
-        </div>
+          <p className="opacity-75">
+            Each workspace isolates its own documents, API keys, and published chat endpoints.
+          </p>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <input
+              type="text"
+              value={newWorkspaceName}
+              onChange={(e) => setNewWorkspaceName(e.target.value)}
+              placeholder="e.g. Eko Fintech Studio"
+              className={`flex-1 rounded-lg border px-3 py-2 ${
+                isDark
+                  ? 'border-white/15 bg-[#0E1030] text-[#FAF6EC]'
+                  : 'border-[#0F1226]/15 bg-[#FAF6EC]/60 text-[#0F1226]'
+              }`}
+            />
+            <select
+              value={newWorkspaceCurrency}
+              onChange={(e) => setNewWorkspaceCurrency(e.target.value as 'NGN' | 'USD')}
+              className={`rounded-lg border px-2.5 py-2 font-mono font-bold ${
+                isDark
+                  ? 'border-white/15 bg-[#0E1030] text-[#FAF6EC]'
+                  : 'border-[#0F1226]/15 bg-[#FAF6EC]/60 text-[#0F1226]'
+              }`}
+            >
+              <option value="NGN">NGN</option>
+              <option value="USD">USD</option>
+            </select>
+            <button
+              type="submit"
+              className="inline-flex items-center justify-center gap-1 rounded-lg bg-[#D9A441] px-4 py-2 font-bold text-[#0F1226] hover:bg-[#c89332]"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              <span>Create</span>
+            </button>
+          </div>
+          {workspaceNotice && (
+            <p className="font-semibold text-[#2E8B57]">{workspaceNotice}</p>
+          )}
+        </form>
 
-        <div className="grid gap-6 lg:grid-cols-12">
-          <form
-            onSubmit={handleCreateWorkspace}
-            className={`rounded-xl border p-4 text-xs lg:col-span-5 ${
-              isDark ? 'border-white/10 bg-[#1B1F5E]/25' : 'border-[#0F1226]/10 bg-white'
-            }`}
-          >
-            <div className="font-semibold">Create New Team Workspace</div>
-            <p className="mt-1 opacity-75">
-              Provision a dedicated workspace for a new project, department, or agency client.
-            </p>
-            <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-              <input
-                type="text"
-                value={newWorkspaceName}
-                onChange={(e) => setNewWorkspaceName(e.target.value)}
-                placeholder="e.g. Eko Fintech Studio"
-                className={`flex-1 rounded-lg border px-3 py-2 ${
-                  isDark
-                    ? 'border-white/15 bg-[#0E1030] text-[#FAF6EC]'
-                    : 'border-[#0F1226]/15 bg-[#FAF6EC] text-[#0F1226]'
-                }`}
-              />
-              <select
-                value={newWorkspaceCurrency}
-                onChange={(e) => setNewWorkspaceCurrency(e.target.value as 'NGN' | 'USD')}
-                className={`rounded-lg border px-2.5 py-2 font-mono ${
-                  isDark
-                    ? 'border-white/15 bg-[#0E1030] text-[#FAF6EC]'
-                    : 'border-[#0F1226]/15 bg-[#FAF6EC] text-[#0F1226]'
-                }`}
-              >
-                <option value="NGN">NGN</option>
-                <option value="USD">USD</option>
-              </select>
-              <button
-                type="submit"
-                className="inline-flex items-center justify-center gap-1 rounded-lg bg-[#D9A441] px-3.5 py-2 font-semibold text-[#0F1226] hover:bg-[#c89332] whitespace-nowrap shrink-0"
-              >
-                <Plus className="h-3.5 w-3.5" />
-                Create
-              </button>
-            </div>
-            {workspaceNotice && (
-              <p className="mt-2 text-[11px] font-medium text-[#2E8B57] dark:text-[#D9A441]">
-                {workspaceNotice}
-              </p>
-            )}
-          </form>
+        <div
+          className={`space-y-3 rounded-2xl border p-5 text-xs lg:col-span-7 ${
+            isDark ? 'border-white/10 bg-[#141742]/70' : 'border-[#0F1226]/10 bg-white'
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <span className="inline-flex items-center gap-1.5 text-sm font-bold">
+              <Activity className="h-4 w-4 text-[#D9A441]" />
+              <span>Recent Studio Executions &amp; Alerts</span>
+            </span>
+            <span className="font-mono text-[11px] opacity-70">
+              {(backendOverview?.recentRuns?.length || 0) +
+                (backendOverview?.notifications?.length || 0)}{' '}
+              event(s)
+            </span>
+          </div>
 
-          <div
-            className={`rounded-xl border p-4 text-xs lg:col-span-7 ${
-              isDark ? 'border-white/10 bg-[#1B1F5E]/25' : 'border-[#0F1226]/10 bg-white'
-            }`}
-          >
-            <div className="mb-2 flex items-center justify-between">
-              <span className="inline-flex items-center gap-1.5 font-semibold">
-                <Bell className="h-3.5 w-3.5 text-[#D9A441]" />
-                Recent Workspace Activity
-              </span>
-              <span className="font-mono text-[11px] opacity-70">
-                {backendOverview ? backendOverview.notifications.length : 0} event(s)
-              </span>
-            </div>
-            <div className="max-h-36 space-y-2 overflow-y-auto pr-1">
-              {(backendOverview?.notifications || []).map((n) => (
-                <div
-                  key={n.id}
-                  className="rounded border border-current/10 p-2 text-[11px]"
-                >
-                  <div className="flex items-center justify-between font-semibold">
-                    <span>{n.title}</span>
-                    <span className="opacity-65 capitalize">{n.channel}</span>
+          <div className="max-h-48 space-y-2 overflow-y-auto pr-1">
+            {(backendOverview?.recentRuns || []).map((run) => (
+              <div
+                key={run.id}
+                className="flex items-center justify-between gap-2 rounded-lg border border-current/10 p-2.5"
+              >
+                <div className="min-w-0">
+                  <div className="truncate font-semibold">{run.prompt}</div>
+                  <div className="text-[11px] opacity-70">
+                    {run.appName} · {run.modelUsed}
                   </div>
-                  <p className="mt-0.5 opacity-80">{n.body}</p>
                 </div>
-              ))}
-            </div>
+                <span className="shrink-0 font-mono text-[11px] font-semibold text-[#2E8B57]">
+                  {run.durationMs}ms
+                </span>
+              </div>
+            ))}
+            {(backendOverview?.notifications || []).map((n) => (
+              <div
+                key={n.id}
+                className="rounded-lg border border-current/10 p-2.5 text-[11px]"
+              >
+                <div className="flex items-center justify-between font-semibold">
+                  <span className="inline-flex items-center gap-1">
+                    <Bell className="h-3 w-3 text-[#D9A441]" />
+                    <span>{n.title}</span>
+                  </span>
+                  <span className="font-mono uppercase opacity-65">{n.channel}</span>
+                </div>
+                <p className="mt-0.5 opacity-80">{n.body}</p>
+              </div>
+            ))}
           </div>
         </div>
       </section>

@@ -17,6 +17,7 @@ import {
   ChevronRight,
   LogIn,
   LogOut,
+  Info,
 } from 'lucide-react';
 import { MarketingLanding } from './components/MarketingLanding.tsx';
 import { AuthView } from './components/AuthView.tsx';
@@ -26,6 +27,7 @@ import { FreeStackView } from './components/FreeStackView.tsx';
 import { AcademyView, SettingsAndSecurityView } from './components/AcademyAndSettingsView.tsx';
 import { BillingView } from './components/BillingView.tsx';
 import { PublicChatView } from './components/PublicChatView.tsx';
+import { AboutView } from './components/AboutView.tsx';
 import { ACADEMY_TEMPLATES } from './data/academyTemplates.ts';
 import { FREE_STACK_CATEGORIES } from './data/freeStackData.ts';
 import { buildProgrammaticSeo, syncBrowserSeo } from './lib/seoEngine.ts';
@@ -51,7 +53,7 @@ import type {
   Workspace,
 } from './types/agba.ts';
 
-type ActiveModule = 'studio' | 'academy' | 'freestack' | 'settings' | 'billing';
+type ActiveModule = 'studio' | 'academy' | 'freestack' | 'settings' | 'billing' | 'about';
 
 const INITIAL_WORKSPACES: Workspace[] = [
   {
@@ -89,6 +91,7 @@ export default function App() {
   );
   const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin');
   const [activeModule, setActiveModule] = useState<ActiveModule>('studio');
+  const [studioTabId, setStudioTabId] = useState<string>('svc-rag');
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
   const [isDark, setIsDark] = useState<boolean>(false);
@@ -100,7 +103,7 @@ export default function App() {
   const [academyTrack, setAcademyTrack] = useState<
     'All' | 'Starter' | 'RAG Tutorial' | 'Advanced Multi-Agent'
   >('All');
-  const [expandedMenu, setExpandedMenu] = useState<ActiveModule | null>('freestack');
+  const [expandedMenu, setExpandedMenu] = useState<ActiveModule | null>('studio');
 
   const [workspaces, setWorkspaces] = useState<Workspace[]>(INITIAL_WORKSPACES);
   const [activeWorkspaceId, setActiveWorkspaceId] = useState<string>('ws_trendtactics_lagos');
@@ -148,7 +151,7 @@ export default function App() {
         }
         if (
           qModule &&
-          ['studio', 'academy', 'freestack', 'settings', 'billing'].includes(qModule)
+          ['studio', 'academy', 'freestack', 'settings', 'billing', 'about'].includes(qModule)
         ) {
           setActiveModule(qModule);
           setExpandedMenu(qModule);
@@ -178,9 +181,12 @@ export default function App() {
       viewMode === 'app' &&
       activeModule === 'settings';
 
+    const mappedModule: 'studio' | 'academy' | 'freestack' | 'settings' | 'billing' =
+      activeModule === 'about' ? 'studio' : activeModule;
+
     const seoMeta = buildProgrammaticSeo({
       viewMode: isStatusRoute ? 'status' : viewMode === 'auth' ? 'marketing' : viewMode,
-      activeModule,
+      activeModule: mappedModule,
       freeStackCategory,
       academyTrack,
     });
@@ -327,6 +333,11 @@ export default function App() {
           setAuthMode(mode ?? 'signin');
           setViewMode('auth');
         }}
+        onEnterAbout={() => {
+          setViewMode('app');
+          setActiveModule('about');
+          setExpandedMenu('about');
+        }}
         onEnterPublicChat={() => {
           setViewMode('public_chat');
         }}
@@ -365,8 +376,32 @@ export default function App() {
       icon: <Cpu className="h-4 w-4 shrink-0" />,
       subItems: [
         {
-          label: 'Workflow Canvas',
-          onClick: () => setActiveModule('studio'),
+          label: 'Document Q&A (RAG)',
+          onClick: () => {
+            setStudioTabId('svc-rag');
+            setActiveModule('studio');
+          },
+        },
+        {
+          label: 'Website & App Builder',
+          onClick: () => {
+            setStudioTabId('svc-webbuilder');
+            setActiveModule('studio');
+          },
+        },
+        {
+          label: 'Supabase Database & API',
+          onClick: () => {
+            setStudioTabId('svc-database');
+            setActiveModule('studio');
+          },
+        },
+        {
+          label: 'Outbound & Inbound Email',
+          onClick: () => {
+            setStudioTabId('svc-notify');
+            setActiveModule('studio');
+          },
         },
         {
           label: 'Public Chat & Embed',
@@ -475,6 +510,21 @@ export default function App() {
         {
           label: 'Currency (NGN / USD)',
           onClick: () => setActiveModule('billing'),
+        },
+      ],
+    },
+    {
+      id: 'about',
+      label: 'About & Guide',
+      icon: <Info className="h-4 w-4 shrink-0" />,
+      subItems: [
+        {
+          label: 'What AGBA Can & Cannot Do',
+          onClick: () => setActiveModule('about'),
+        },
+        {
+          label: 'Product Comparison Matrix',
+          onClick: () => setActiveModule('about'),
         },
       ],
     },
@@ -794,6 +844,25 @@ export default function App() {
               onUpdateWorkflow={setCurrentWorkflow}
               onSelectTemplate={handleImportTemplate}
               onOpenPublicChat={() => setViewMode('public_chat')}
+              initialServiceId={studioTabId}
+              isDark={isDark}
+            />
+          )}
+          {activeModule === 'about' && (
+            <AboutView
+              onOpenStudioTab={(tabId) => {
+                setStudioTabId(tabId);
+                setActiveModule('studio');
+                setExpandedMenu('studio');
+              }}
+              onOpenAcademy={() => {
+                setActiveModule('academy');
+                setExpandedMenu('academy');
+              }}
+              onOpenFreeStack={() => {
+                setActiveModule('freestack');
+                setExpandedMenu('freestack');
+              }}
               isDark={isDark}
             />
           )}
@@ -869,6 +938,11 @@ export default function App() {
             <BillingView
               activeWorkspace={activeWorkspace}
               onChangeCurrency={handleCurrencyChange}
+              onUpgradePlan={(planTier) => {
+                setWorkspaces((prev) =>
+                  prev.map((w) => (w.id === activeWorkspace.id ? { ...w, planTier } : w))
+                );
+              }}
               isDark={isDark}
             />
           )}

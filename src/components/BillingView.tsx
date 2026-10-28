@@ -5,22 +5,55 @@ import type { Workspace } from '../types/agba.ts';
 interface BillingViewProps {
   activeWorkspace: Workspace;
   onChangeCurrency: (currency: 'NGN' | 'USD') => void;
+  onUpgradePlan?: (planTier: 'free' | 'builder' | 'team') => void;
   isDark: boolean;
 }
 
 export const BillingView: React.FC<BillingViewProps> = ({
   activeWorkspace,
   onChangeCurrency,
+  onUpgradePlan,
   isDark,
 }) => {
   const [webhookEventId, setWebhookEventId] = useState<string>('evt_paystack_lagos_2026_001');
   const [webhookAmount, setWebhookAmount] = useState<number>(1500000); // 15,000.00 in kobo
   const [tamperSig, setTamperSig] = useState<boolean>(false);
+  const [activatingPlan, setActivatingPlan] = useState<string | null>(null);
   const [webhookResult, setWebhookResult] = useState<{
     verified: boolean;
     idempotentReplay?: boolean;
     message: string;
   } | null>(null);
+
+  const handleActivatePlan = async (tier: 'free' | 'builder' | 'team', label: string) => {
+    setActivatingPlan(tier);
+    const evtId = `evt_plan_${tier}_${Date.now().toString(36)}`;
+    setWebhookEventId(evtId);
+    try {
+      const res = await fetch('/api/billing/paystack-webhook-test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          workspace_id: activeWorkspace.id,
+          eventId: evtId,
+          amountSmallestUnit: tier === 'free' ? 0 : Number(webhookAmount),
+          currency: activeWorkspace.currency,
+          tamperSignature: false,
+          planTier: tier,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.verified) {
+        if (onUpgradePlan) onUpgradePlan(tier);
+        setWebhookResult({
+          verified: true,
+          message: `Activated "${label}" plan for workspace "${activeWorkspace.name}" (Event ID: ${evtId}).`,
+        });
+      }
+    } finally {
+      setActivatingPlan(null);
+    }
+  };
 
   const handleTestWebhook = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,6 +61,7 @@ export const BillingView: React.FC<BillingViewProps> = ({
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
+        workspace_id: activeWorkspace.id,
         eventId: webhookEventId,
         amountSmallestUnit: Number(webhookAmount),
         currency: activeWorkspace.currency,
@@ -53,8 +87,15 @@ export const BillingView: React.FC<BillingViewProps> = ({
     }
   };
 
-  const plans = [
+  const plans: {
+    tier: 'free' | 'builder' | 'team';
+    name: string;
+    audience: string;
+    priceDisplay: string;
+    quotas: string[];
+  }[] = [
     {
+      tier: 'free',
       name: 'Free Starter',
       audience: 'For students, solo builders & early prototypes',
       priceDisplay: '[PRICE_TBD] (Free Tier)',
@@ -66,6 +107,7 @@ export const BillingView: React.FC<BillingViewProps> = ({
       ],
     },
     {
+      tier: 'builder',
       name: 'Builder',
       audience: 'For founders & SMEs shipping customer-facing AI apps',
       priceDisplay: `[PRICE_TBD] / month (${activeWorkspace.currency})`,
@@ -77,6 +119,7 @@ export const BillingView: React.FC<BillingViewProps> = ({
       ],
     },
     {
+      tier: 'team',
       name: 'Team & Agency',
       audience: 'For agencies & multi-client delivery teams',
       priceDisplay: `[PRICE_TBD] / month (${activeWorkspace.currency})`,
@@ -135,52 +178,65 @@ export const BillingView: React.FC<BillingViewProps> = ({
 
       {/* Plan Cards */}
       <div className="grid gap-6 lg:grid-cols-3">
-        {plans.map((plan, idx) => (
-          <div
-            key={plan.name}
-            className={`flex flex-col justify-between rounded-xl border p-6 ${
-              idx === 1
-                ? isDark
-                  ? 'border-[#D9A441] bg-[#1B1F5E]/50'
-                  : 'border-[#3B3FA8] bg-white'
-                : isDark
-                  ? 'border-white/10 bg-[#1B1F5E]/25'
-                  : 'border-[#0F1226]/10 bg-white'
-            }`}
-          >
-            <div>
-              <div className="text-xs opacity-75">{plan.audience}</div>
-              <h2 className="font-display mt-1 text-xl font-bold">{plan.name}</h2>
-              <div className="mt-4 border-y border-current/10 py-3 font-mono text-base font-semibold text-[#3B3FA8] dark:text-[#D9A441]">
-                {plan.priceDisplay}
+        {plans.map((plan) => {
+          const isCurrent = activeWorkspace.planTier === plan.tier;
+          return (
+            <div
+              key={plan.name}
+              className={`flex flex-col justify-between rounded-xl border p-6 ${
+                isCurrent
+                  ? isDark
+                    ? 'border-[#D9A441] bg-[#1B1F5E]/50'
+                    : 'border-[#3B3FA8] bg-white shadow-xs'
+                  : isDark
+                    ? 'border-white/10 bg-[#1B1F5E]/25'
+                    : 'border-[#0F1226]/10 bg-white'
+              }`}
+            >
+              <div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="opacity-75">{plan.audience}</span>
+                  {isCurrent && (
+                    <span className="font-mono font-bold text-[#2E8B57] dark:text-[#D9A441]">
+                      ACTIVE
+                    </span>
+                  )}
+                </div>
+                <h2 className="font-display mt-1 text-xl font-bold">{plan.name}</h2>
+                <div className="mt-4 border-y border-current/10 py-3 font-mono text-base font-semibold text-[#3B3FA8] dark:text-[#D9A441]">
+                  {plan.priceDisplay}
+                </div>
+                <ul className="mt-4 space-y-2.5 text-xs leading-relaxed">
+                  {plan.quotas.map((q) => (
+                    <li key={q} className="flex items-start gap-2">
+                      <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#2E8B57] dark:text-[#D9A441]" />
+                      <span>{q}</span>
+                    </li>
+                  ))}
+                </ul>
               </div>
-              <ul className="mt-4 space-y-2.5 text-xs leading-relaxed">
-                {plan.quotas.map((q) => (
-                  <li key={q} className="flex items-start gap-2">
-                    <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#2E8B57] dark:text-[#D9A441]" />
-                    <span>{q}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
 
-            <div className="mt-6 pt-4">
-              <button
-                type="button"
-                onClick={() => {
-                  setWebhookEventId(`evt_${plan.name.toLowerCase().replace(/\s+/g, '_')}_01`);
-                }}
-                className={`w-full rounded-lg px-4 py-2.5 text-xs font-semibold transition-colors ${
-                  idx === 1
-                    ? 'bg-[#D9A441] text-[#0F1226] hover:bg-[#c89332]'
-                    : 'border border-current/20 hover:bg-current/5'
-                }`}
-              >
-                Select {plan.name} Plan
-              </button>
+              <div className="mt-6 pt-4">
+                <button
+                  type="button"
+                  disabled={isCurrent || activatingPlan === plan.tier}
+                  onClick={() => void handleActivatePlan(plan.tier, plan.name)}
+                  className={`w-full rounded-lg px-4 py-2.5 text-xs font-semibold transition-colors ${
+                    isCurrent
+                      ? 'border border-[#2E8B57]/40 bg-[#2E8B57]/15 text-[#2E8B57] cursor-default'
+                      : 'bg-[#D9A441] text-[#0F1226] hover:bg-[#c89332]'
+                  }`}
+                >
+                  {isCurrent
+                    ? `Current Plan (${plan.name})`
+                    : activatingPlan === plan.tier
+                      ? 'Activating…'
+                      : `Activate ${plan.name} Plan`}
+                </button>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Paystack Webhook & Notification Workflows */}

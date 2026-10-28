@@ -687,6 +687,50 @@
   ],
   "workflowRuns": [
     {
+      "id": "run_1aa34f20",
+      "workspace_id": "ws_genio_sg5u",
+      "appId": "app_sme_rag_01",
+      "appName": "Studio Workflow",
+      "prompt": "What are the key onboarding and Paystack settlement rules in our Lagos SME handbook?",
+      "answer": "**Grounded Answer from [Lagos_SME_Paystack_Settlement_Guide.pdf]** (Match: `99%`):\n\n> \"Paystack webhooks are verified with HMAC-SHA512 over the raw payload. All subscription amounts are stored in kobo for NGN and cents for USD. Replayed webhook events are ignored via the idempotency ledger. All cooperative merchants must complete KYC verification and configure their settlement bank account in NGN kobo before enabling automated payouts.\"\n\n**Summary:** Completed in workspace `ws_genio_sg5u` with citation verification and prompt-injection sandboxing.",
+      "modelUsed": "agba-local-engine (self-hosted synthesizer)",
+      "status": "completed",
+      "durationMs": 6,
+      "nodeTraces": [
+        {
+          "nodeId": "node_1",
+          "nodeTitle": "Vector Cosine Retriever (rag_chunks_768)",
+          "kind": "step",
+          "status": "ok",
+          "durationMs": 5,
+          "outputSummary": "Retrieved 2 chunk(s) strictly filtered by workspace_id=\"ws_genio_sg5u\" (top cosine score: 0.99)."
+        },
+        {
+          "nodeId": "node_2",
+          "nodeTitle": "Grounded Answer Synthesizer",
+          "kind": "step",
+          "status": "ok",
+          "durationMs": 5,
+          "outputSummary": "Completed via agba-local-engine (self-hosted synthesizer) with 2 verified citation(s)."
+        }
+      ],
+      "citations": [
+        {
+          "sourceName": "Lagos_SME_Paystack_Settlement_Guide.pdf",
+          "documentId": "rag_ws_genio_sg5u_paystack.pdf",
+          "similarityScore": 0.99,
+          "excerpt": "Paystack webhooks are verified with HMAC-SHA512 over the raw payload. All subscription amounts are stored in kobo for NGN and cents for USD. Replayed webhook ev…"
+        },
+        {
+          "sourceName": "AGBA_Security_And_Architecture_v1.md",
+          "documentId": "rag_ws_genio_sg5u_arch.md",
+          "similarityScore": 0.349,
+          "excerpt": "AGBA is a self-hosted multi-tenant platform built on open-source foundations: Appwrite (BSD-3-Clause) for Teams/Workspaces, Auth, and Storage; PostgreSQL pgvect…"
+        }
+      ],
+      "createdAt": "2026-10-28T06:30:15.030Z"
+    },
+    {
       "id": "run_34de822e",
       "workspace_id": "ws_genio_sg5u",
       "appId": "app_sme_rag_01",
@@ -1701,6 +1745,26 @@
   ],
   "notifications": [
     {
+      "id": "notif_b6367486",
+      "workspace_id": "ws_trendtactics_lagos",
+      "workflowTrigger": "welcome",
+      "channel": "email",
+      "title": "Email Sent (2 recipients): Broadcast Test",
+      "body": "Dispatched across 2 recipient(s) via AGBA Built-in Mail Relay (AGBA_RELAY). — To: a@test.ng, b@test.ng",
+      "read": false,
+      "createdAt": "2026-10-28T07:11:49.273Z"
+    },
+    {
+      "id": "notif_c22314a3-1",
+      "workspace_id": "ws_genio_sg5u",
+      "workflowTrigger": "payment-receipt",
+      "channel": "email",
+      "title": "Settlement Verified (ops@genio.ng)",
+      "body": "All kobo settlements verified.",
+      "read": false,
+      "createdAt": "2026-10-28T06:30:15.560Z"
+    },
+    {
       "id": "notif_24a7f37c-5845-4a60-bef2-a73837298cb3",
       "workspace_id": "ws_genio_e20s",
       "workflowTrigger": "welcome",
@@ -1744,5 +1808,211 @@
   "processedWebhookEvents": [],
   "customFreeStackEntries": [],
   "updatedFreeStackEntries": {},
-  "deletedFreeStackIds": []
+  "deletedFreeStackIds": [],
+  "customTables": [
+    {
+      "id": "tbl_customers_ws_trendtactics_lagos",
+      "workspace_id": "ws_trendtactics_lagos",
+      "tableName": "customers",
+      "description": "Customer accounts, subscription plans, and onboarding status",
+      "columns": [
+        {
+          "name": "id",
+          "type": "text",
+          "required": true
+        },
+        {
+          "name": "full_name",
+          "type": "text",
+          "required": true
+        },
+        {
+          "name": "email",
+          "type": "text",
+          "required": true
+        },
+        {
+          "name": "plan_tier",
+          "type": "text",
+          "required": true
+        },
+        {
+          "name": "mrr_ngn",
+          "type": "number",
+          "required": false
+        },
+        {
+          "name": "verified",
+          "type": "boolean",
+          "required": false
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp",
+          "required": true
+        }
+      ],
+      "rows": [
+        {
+          "id": "cus_01",
+          "full_name": "Tunde Bakare",
+          "email": "tunde.bakare@kobosme.ng",
+          "plan_tier": "Builder",
+          "mrr_ngn": 15000,
+          "verified": true,
+          "created_at": "2026-10-28T07:11:49.187Z"
+        },
+        {
+          "id": "cus_02",
+          "full_name": "Amaka Okafor",
+          "email": "amaka@lagoslogistics.com",
+          "plan_tier": "Team & Agency",
+          "mrr_ngn": 45000,
+          "verified": true,
+          "created_at": "2026-10-28T07:11:49.187Z"
+        },
+        {
+          "id": "cus_03",
+          "full_name": "Ibrahim Musa",
+          "email": "ibrahim@kanoagritech.org",
+          "plan_tier": "Free Starter",
+          "mrr_ngn": 0,
+          "verified": true,
+          "created_at": "2026-10-28T07:11:49.187Z"
+        }
+      ],
+      "createdAt": "2026-10-28T07:11:49.187Z",
+      "updatedAt": "2026-10-28T07:11:49.187Z"
+    },
+    {
+      "id": "tbl_orders_ws_trendtactics_lagos",
+      "workspace_id": "ws_trendtactics_lagos",
+      "tableName": "orders",
+      "description": "Paystack & USD payment transactions and settlement ledger",
+      "columns": [
+        {
+          "name": "id",
+          "type": "text",
+          "required": true
+        },
+        {
+          "name": "customer_email",
+          "type": "text",
+          "required": true
+        },
+        {
+          "name": "item_name",
+          "type": "text",
+          "required": true
+        },
+        {
+          "name": "amount_ngn",
+          "type": "number",
+          "required": true
+        },
+        {
+          "name": "status",
+          "type": "text",
+          "required": true
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp",
+          "required": true
+        }
+      ],
+      "rows": [
+        {
+          "id": "ord_901",
+          "customer_email": "tunde.bakare@kobosme.ng",
+          "item_name": "Annual AI Support Chatbot License",
+          "amount_ngn": 150000,
+          "status": "settled",
+          "created_at": "2026-10-28T07:11:49.187Z"
+        },
+        {
+          "id": "ord_902",
+          "customer_email": "amaka@lagoslogistics.com",
+          "item_name": "Custom WhatsApp & Email Automation Pack",
+          "amount_ngn": 85000,
+          "status": "settled",
+          "created_at": "2026-10-28T07:11:49.187Z"
+        }
+      ],
+      "createdAt": "2026-10-28T07:11:49.187Z",
+      "updatedAt": "2026-10-28T07:11:49.187Z"
+    }
+  ],
+  "generatedWebApps": [
+    {
+      "id": "site_a4765ced",
+      "workspace_id": "ws_trendtactics_lagos",
+      "slug": "lagos-fintech-app",
+      "title": "Lagos Fintech App",
+      "description": "Merchant portal",
+      "templateType": "fintech",
+      "primaryColor": "#1D3557",
+      "currency": "NGN",
+      "htmlCode": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"UTF-8\" />\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />\n  <title>Lagos Fintech App</title>\n  <script src=\"https://cdn.tailwindcss.com\"></script>\n  <link rel=\"preconnect\" href=\"https://fonts.googleapis.com\">\n  <link href=\"https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap\" rel=\"stylesheet\">\n  <style>\n    body { font-family: 'Inter', sans-serif; background-color: #FAF6EE; color: #14120E; }\n    h1, h2, h3, .font-serif-title { font-family: 'Fraunces', serif; }\n    .brand-bg { background-color: #1D3557; }\n    .brand-text { color: #1D3557; }\n    .brand-border { border-color: #1D3557; }\n  </style>\n</head>\n<body class=\"min-h-screen flex flex-col\">\n  <!-- Top Navbar -->\n  <header class=\"sticky top-0 z-30 bg-[#FAF6EE]/95 backdrop-blur border-b border-[#E2D9C5]\">\n    <div class=\"max-w-6xl mx-auto px-6 h-16 flex items-center justify-between\">\n      <div class=\"flex items-center gap-3\">\n        <div class=\"w-9 h-9 rounded-lg brand-bg text-white flex items-center justify-center font-bold text-sm shadow-sm\">\n          LA\n        </div>\n        <div>\n          <span class=\"font-serif-title font-bold text-lg tracking-tight\">Lagos Fintech App</span>\n          <span class=\"hidden sm:inline-block ml-2 text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded bg-[#EFE8D8] text-[#5C5446]\">FINTECH & PAYSTACK SETTLEMENT PORTAL</span>\n        </div>\n      </div>\n      <nav class=\"hidden md:flex items-center gap-6 text-sm font-medium text-[#5C5446]\">\n        <a href=\"#features\" class=\"hover:text-[#14120E] transition\">Features</a>\n        <a href=\"#calculator\" class=\"hover:text-[#14120E] transition\">Pricing &amp; Calculator</a>\n        <a href=\"#lead-form\" class=\"hover:text-[#14120E] transition\">Live Database Form</a>\n      </nav>\n      <a href=\"#lead-form\" class=\"px-4 py-2 rounded-lg brand-bg text-white text-xs font-semibold hover:opacity-90 transition shadow-sm\">\n        Get Started Now\n      </a>\n    </div>\n  </header>\n\n  <!-- Hero Section -->\n  <section class=\"py-16 md:py-24 px-6 border-b border-[#E2D9C5]\">\n    <div class=\"max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-10 items-center\">\n      <div class=\"lg:col-span-7 space-y-6\">\n        <div class=\"inline-flex items-center gap-2 px-3 py-1 rounded-md bg-white border border-[#E2D9C5] text-xs font-mono text-[#5C5446]\">\n          <span class=\"w-2 h-2 rounded-full bg-emerald-600\"></span>\n          Connected to AGBA Backend Table API (ws_trendtactics_lagos)\n        </div>\n        <h1 class=\"text-4xl sm:text-5xl font-bold leading-[1.12] tracking-tight text-[#14120E]\">\n          Lagos Fintech App\n        </h1>\n        <p class=\"text-base sm:text-lg text-[#5C5446] leading-relaxed max-w-2xl\">\n          Merchant portal\n        </p>\n        <div class=\"flex flex-wrap items-center gap-3 pt-2\">\n          <a href=\"#lead-form\" class=\"px-6 py-3.5 rounded-xl brand-bg text-white text-sm font-semibold shadow hover:opacity-95 transition\">\n            Create Customer Account\n          </a>\n          <a href=\"#calculator\" class=\"px-5 py-3.5 rounded-xl bg-white border border-[#E2D9C5] text-sm font-semibold text-[#14120E] hover:bg-[#EFE8D8] transition\">\n            Estimate NGN Pricing\n          </a>\n        </div>\n      </div>\n\n      <!-- Interactive Live Metric & Quick Order Card -->\n      <div class=\"lg:col-span-5 bg-white rounded-2xl border border-[#E2D9C5] p-6 shadow-sm space-y-5\">\n        <div class=\"flex items-center justify-between border-b border-[#E2D9C5] pb-4\">\n          <div>\n            <div class=\"text-xs font-mono uppercase tracking-wider text-[#5C5446]\">Live Workspace Database</div>\n            <h3 class=\"text-lg font-bold mt-0.5\">Instant Order &amp; Lead Capture</h3>\n          </div>\n          <span class=\"px-2.5 py-1 rounded text-xs font-mono bg-emerald-50 text-emerald-800 border border-emerald-200\">LIVE API</span>\n        </div>\n        <div class=\"grid grid-cols-2 gap-3\">\n          <div class=\"p-3.5 rounded-xl bg-[#FAF6EE] border border-[#E2D9C5]\">\n            <div class=\"text-xs text-[#5C5446]\">Starter Plan</div>\n            <div class=\"text-xl font-bold font-mono mt-1\">₦15,000<span class=\"text-xs font-normal\">/mo</span></div>\n          </div>\n          <div class=\"p-3.5 rounded-xl bg-[#FAF6EE] border border-[#E2D9C5]\">\n            <div class=\"text-xs text-[#5C5446]\">Growth Plan</div>\n            <div class=\"text-xl font-bold font-mono mt-1\">₦45,000<span class=\"text-xs font-normal\">/mo</span></div>\n          </div>\n        </div>\n        <div class=\"text-xs text-[#5C5446] leading-relaxed\">\n          Every signup submitted below writes directly to your AGBA <code>customers</code> database table in workspace <code>ws_trendtactics_lagos</code>.\n        </div>\n      </div>\n    </div>\n  </section>\n\n  <!-- Feature Grid -->\n  <section id=\"features\" class=\"py-16 px-6 border-b border-[#E2D9C5] bg-white\">\n    <div class=\"max-w-6xl mx-auto\">\n      <div class=\"max-w-2xl mb-10\">\n        <div class=\"text-xs font-mono uppercase tracking-wider brand-text font-semibold\">Core Capabilities</div>\n        <h2 class=\"text-2xl sm:text-3xl font-bold mt-1\">Built for speed, transparency, and instant backend sync</h2>\n      </div>\n      <div class=\"grid grid-cols-1 md:grid-cols-3 gap-6\">\n        <div class=\"p-6 rounded-2xl bg-[#FAF6EE] border border-[#E2D9C5]\">\n          <div class=\"w-9 h-9 rounded-lg brand-bg text-white flex items-center justify-center font-mono text-xs font-bold mb-4\">01</div>\n          <h3 class=\"text-lg font-bold mb-2\">Supabase-Style Backend</h3>\n          <p class=\"text-sm text-[#5C5446] leading-relaxed\">Submissions from this website automatically save into your workspace's <code>customers</code> table via REST API.</p>\n        </div>\n        <div class=\"p-6 rounded-2xl bg-[#FAF6EE] border border-[#E2D9C5]\">\n          <div class=\"w-9 h-9 rounded-lg brand-bg text-white flex items-center justify-center font-mono text-xs font-bold mb-4\">02</div>\n          <h3 class=\"text-lg font-bold mb-2\">NGN Pricing &amp; Settlement</h3>\n          <p class=\"text-sm text-[#5C5446] leading-relaxed\">Transparent unit economics calculator with automatic fee estimation in NGN (₦).</p>\n        </div>\n        <div class=\"p-6 rounded-2xl bg-[#FAF6EE] border border-[#E2D9C5]\">\n          <div class=\"w-9 h-9 rounded-lg brand-bg text-white flex items-center justify-center font-mono text-xs font-bold mb-4\">03</div>\n          <h3 class=\"text-lg font-bold mb-2\">Automated Email Alerts</h3>\n          <p class=\"text-sm text-[#5C5446] leading-relaxed\">Trigger instant welcome emails and team notifications whenever a new customer signs up.</p>\n        </div>\n      </div>\n    </div>\n  </section>\n\n  <!-- Interactive Pricing Calculator & Live Database Lead Form -->\n  <section id=\"calculator\" class=\"py-16 px-6 flex-1\">\n    <div class=\"max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8\">\n      <!-- Interactive Estimator -->\n      <div class=\"lg:col-span-6 bg-white rounded-2xl border border-[#E2D9C5] p-6 sm:p-8 shadow-sm\">\n        <div class=\"text-xs font-mono uppercase tracking-wider text-[#5C5446]\">Interactive Estimator</div>\n        <h3 class=\"text-2xl font-bold mt-1 mb-5\">Calculate Your Monthly Plan</h3>\n        <div class=\"space-y-4\">\n          <div>\n            <label class=\"block text-xs font-semibold uppercase tracking-wider text-[#5C5446] mb-1.5\">\n              Number of Team Seats / Units: <span id=\"seatVal\" class=\"font-mono font-bold text-[#14120E]\">5</span>\n            </label>\n            <input id=\"seatRange\" type=\"range\" min=\"1\" max=\"50\" value=\"5\" class=\"w-full accent-[#1D3557]\" oninput=\"updateEstimate()\" />\n          </div>\n          <div>\n            <label class=\"block text-xs font-semibold uppercase tracking-wider text-[#5C5446] mb-1.5\">Select Tier</label>\n            <select id=\"tierSelect\" onchange=\"updateEstimate()\" class=\"w-full rounded-xl border border-[#E2D9C5] bg-[#FAF6EE] px-3.5 py-2.5 text-sm\">\n              <option value=\"15000\">Starter Plan (₦15,000 / unit)</option>\n              <option value=\"45000\">Growth Plan (₦45,000 / unit)</option>\n            </select>\n          </div>\n          <div class=\"p-4 rounded-xl bg-[#FAF6EE] border border-[#E2D9C5] flex items-center justify-between mt-4\">\n            <span class=\"text-sm font-medium text-[#5C5446]\">Estimated Monthly Total</span>\n            <span id=\"totalDisplay\" class=\"text-2xl font-bold font-mono brand-text\">₦75,000</span>\n          </div>\n        </div>\n      </div>\n\n      <!-- Live Database Signup Form -->\n      <div id=\"lead-form\" class=\"lg:col-span-6 bg-white rounded-2xl border border-[#E2D9C5] p-6 sm:p-8 shadow-sm\">\n        <div class=\"text-xs font-mono uppercase tracking-wider text-emerald-700 font-semibold\">Connected to AGBA Database</div>\n        <h3 class=\"text-2xl font-bold mt-1 mb-2\">Register &amp; Save to Workspace Table</h3>\n        <p class=\"text-xs text-[#5C5446] mb-5\">Submitting this form sends a live <code>POST /api/baas/ws_trendtactics_lagos/customers</code> request.</p>\n        <form id=\"agbaLeadForm\" onsubmit=\"submitToAgbaTable(event)\" class=\"space-y-3.5\">\n          <div>\n            <label class=\"block text-xs font-semibold text-[#5C5446] mb-1\">Full Name</label>\n            <input id=\"fullName\" required placeholder=\"e.g. Chinedu Eze\" class=\"w-full rounded-xl border border-[#E2D9C5] bg-[#FAF6EE] px-3.5 py-2.5 text-sm\" />\n          </div>\n          <div>\n            <label class=\"block text-xs font-semibold text-[#5C5446] mb-1\">Email Address</label>\n            <input id=\"emailAddr\" type=\"email\" required placeholder=\"you@company.com\" class=\"w-full rounded-xl border border-[#E2D9C5] bg-[#FAF6EE] px-3.5 py-2.5 text-sm\" />\n          </div>\n          <div>\n            <label class=\"block text-xs font-semibold text-[#5C5446] mb-1\">Selected Plan</label>\n            <select id=\"planChoice\" class=\"w-full rounded-xl border border-[#E2D9C5] bg-[#FAF6EE] px-3.5 py-2.5 text-sm\">\n              <option value=\"Builder\">Builder (₦15,000)</option>\n              <option value=\"Team & Agency\">Team &amp; Agency (₦45,000)</option>\n            </select>\n          </div>\n          <button type=\"submit\" id=\"submitBtn\" class=\"w-full py-3 rounded-xl brand-bg text-white text-sm font-semibold hover:opacity-95 transition\">\n            Submit to Live Database Table\n          </button>\n          <div id=\"formStatus\" class=\"hidden p-3 rounded-xl text-xs font-medium\"></div>\n        </form>\n      </div>\n    </div>\n  </section>\n\n  <footer class=\"py-8 px-6 border-t border-[#E2D9C5] text-center text-xs text-[#5C5446]\">\n    Built &amp; Hosted with AGBA Website &amp; App Studio · Workspace <code>ws_trendtactics_lagos</code>\n  </footer>\n\n  <script>\n    const currencySymbol = \"₦\";\n    const workspaceId = \"ws_trendtactics_lagos\";\n\n    function updateEstimate() {\n      const seats = Number(document.getElementById('seatRange').value || 1);\n      const unitPrice = Number(document.getElementById('tierSelect').value || 15000);\n      document.getElementById('seatVal').textContent = String(seats);\n      const total = seats * unitPrice;\n      document.getElementById('totalDisplay').textContent = currencySymbol + total.toLocaleString();\n    }\n\n    async function submitToAgbaTable(e) {\n      e.preventDefault();\n      const btn = document.getElementById('submitBtn');\n      const statusBox = document.getElementById('formStatus');\n      const full_name = document.getElementById('fullName').value.trim();\n      const email = document.getElementById('emailAddr').value.trim();\n      const plan_tier = document.getElementById('planChoice').value;\n\n      btn.disabled = true;\n      btn.textContent = 'Saving to AGBA Table...';\n      statusBox.className = 'hidden';\n\n      try {\n        const res = await fetch('/api/baas/' + encodeURIComponent(workspaceId) + '/customers', {\n          method: 'POST',\n          headers: { 'Content-Type': 'application/json' },\n          body: JSON.stringify({\n            full_name,\n            email,\n            plan_tier,\n            mrr_ngn: plan_tier.includes('Team') ? 45000 : 15000,\n            verified: true\n          })\n        });\n        const data = await res.json();\n        statusBox.className = 'block p-3 rounded-xl text-xs font-medium bg-emerald-50 text-emerald-900 border border-emerald-300';\n        statusBox.textContent = 'Saved row ' + (data.insertedRow?.id || '') + ' into your workspace customers table!';\n        document.getElementById('agbaLeadForm').reset();\n      } catch (err) {\n        statusBox.className = 'block p-3 rounded-xl text-xs font-medium bg-amber-50 text-amber-900 border border-amber-300';\n        statusBox.textContent = 'Form captured locally in preview mode.';\n      } finally {\n        btn.disabled = false;\n        btn.textContent = 'Submit to Live Database Table';\n      }\n    }\n  </script>\n</body>\n</html>",
+      "createdAt": "2026-10-28T07:11:49.232Z",
+      "updatedAt": "2026-10-28T07:11:49.232Z"
+    }
+  ],
+  "emailConfigs": [
+    {
+      "workspace_id": "ws_trendtactics_lagos",
+      "outboundProvider": "agba_relay",
+      "inboundProvider": "agba_inbound",
+      "fromEmail": "hello@trendtactics.ng",
+      "fromName": "AGBA Workspace Mailer",
+      "replyToEmail": "support@trendtactics.ng",
+      "autoReplyEnabled": true,
+      "updatedAt": "2026-10-28T07:11:49.189Z"
+    }
+  ],
+  "outboundEmails": [
+    {
+      "id": "out_dd524eb1",
+      "workspace_id": "ws_trendtactics_lagos",
+      "provider": "agba_relay",
+      "mode": "broadcast",
+      "from": "AGBA Workspace Mailer <hello@trendtactics.ng>",
+      "recipients": [
+        "a@test.ng",
+        "b@test.ng"
+      ],
+      "subject": "Broadcast Test",
+      "body": "Hello across the board",
+      "status": "delivered",
+      "providerMessageId": "msg_84ac63f7-2",
+      "deliveryNote": "Dispatched across 2 recipient(s) via AGBA Built-in Mail Relay (AGBA_RELAY).",
+      "createdAt": "2026-10-28T07:11:49.273Z"
+    }
+  ],
+  "inboundEmails": [
+    {
+      "id": "inb_ef348b43",
+      "workspace_id": "ws_trendtactics_lagos",
+      "provider": "resend_inbound",
+      "from": "tunde.bakare@kobosme.ng",
+      "fromName": "Tunde Bakare (KoboSME)",
+      "to": "hello@trendtactics.ng",
+      "subject": "Question on Paystack T+1 Settlement & API Integration",
+      "body": "Hello team, we just activated the Builder plan for our Lagos SME cooperative. Can you confirm if Paystack NGN settlements happen automatically every T+1 business morning?",
+      "status": "unread",
+      "receivedAt": "2026-10-28T07:11:49.189Z"
+    },
+    {
+      "id": "inb_cc3574e4",
+      "workspace_id": "ws_trendtactics_lagos",
+      "provider": "sendgrid_parse",
+      "from": "amaka@lagoslogistics.com",
+      "fromName": "Amaka Okafor",
+      "to": "hello@trendtactics.ng",
+      "subject": "Requesting Custom Website & Database Setup for 25 Drivers",
+      "body": "Hi there, we want to use AGBA to host our dispatch tracker table and send automated SMS/email alerts to customers across Victoria Island and Ikeja.",
+      "status": "unread",
+      "receivedAt": "2026-10-28T07:11:49.189Z"
+    }
+  ]
 }

@@ -12,6 +12,10 @@ import {
   Sun,
   Moon,
   AlertCircle,
+  RefreshCw,
+  KeyRound,
+  UserPlus,
+  LogIn,
 } from 'lucide-react';
 import { AgbaLogoMark } from './AgbaLogoMark.tsx';
 import { AdirePattern } from './AdirePattern.tsx';
@@ -20,6 +24,8 @@ import {
   signInWithEmail,
   signUpWithEmail,
   requestPasswordReset,
+  classifyAuthError,
+  type AuthFeedbackError,
   type BridgedSessionSummary,
 } from '../lib/firebase.ts';
 
@@ -45,12 +51,24 @@ export const AuthView: React.FC<AuthViewProps> = ({
   const [password, setPassword] = useState<string>('');
   const [showPassword, setShowPassword] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [authError, setAuthError] = useState<AuthFeedbackError | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [attemptCount, setAttemptCount] = useState<number>(0);
+
+  const clearFeedback = () => {
+    setAuthError(null);
+    setStatusMessage(null);
+  };
+
+  const focusField = (fieldId: 'auth-email' | 'auth-password') => {
+    const el = document.getElementById(fieldId);
+    if (el) {
+      el.focus();
+    }
+  };
 
   const handleGoogleSignIn = async () => {
-    setErrorMessage(null);
-    setStatusMessage(null);
+    clearFeedback();
     setIsLoading(true);
     try {
       const user = await signInWithGooglePopup();
@@ -62,7 +80,7 @@ export const AuthView: React.FC<AuthViewProps> = ({
         emailVerified: true,
         identityProvider: 'firebase',
       });
-    } catch {
+    } catch (googleErr) {
       // Never allow passwordless email sign-in. If the user already entered both email AND a valid password (>= 6 chars), verify with email + password:
       if (email.trim().includes('@') && password.length >= 6) {
         try {
@@ -77,32 +95,37 @@ export const AuthView: React.FC<AuthViewProps> = ({
               : await signInWithEmail(email.trim(), password);
           onAuthSuccess(session);
           return;
-        } catch (authErr) {
-          setErrorMessage(
-            authErr instanceof Error ? authErr.message : 'Invalid email or password.'
+        } catch (emailAuthErr) {
+          const classified = classifyAuthError(
+            emailAuthErr,
+            mode === 'signup' ? 'signup' : 'signin'
           );
+          setAuthError(classified);
+          setAttemptCount((c) => c + 1);
+          if (classified.field === 'password') focusField('auth-password');
+          else if (classified.field === 'email') focusField('auth-email');
           return;
         }
       }
 
-      setErrorMessage(
-        'Google popup is blocked or unauthorized on this domain. For your security, please enter both your email address and password (minimum 6 characters) below.'
-      );
-      const targetInputId = email.trim() ? 'auth-password' : 'auth-email';
-      const el = document.getElementById(targetInputId);
-      if (el) el.focus();
+      const classifiedGoogleErr = classifyAuthError(googleErr, 'google');
+      setAuthError(classifiedGoogleErr);
+      focusField(email.trim() ? 'auth-password' : 'auth-email');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleEmailSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setErrorMessage(null);
-    setStatusMessage(null);
+  const executeEmailAuth = async () => {
+    clearFeedback();
 
-    if (!email.trim()) {
-      setErrorMessage('Please enter your email address.');
+    if (!email.trim() || !email.includes('@')) {
+      const err = classifyAuthError(
+        { code: 'auth/invalid-email', message: 'Please enter a valid email address.' },
+        mode === 'reset' ? 'reset' : mode
+      );
+      setAuthError(err);
+      focusField('auth-email');
       return;
     }
 
@@ -113,6 +136,8 @@ export const AuthView: React.FC<AuthViewProps> = ({
         setStatusMessage(
           `If an account exists for ${email.trim()}, a password reset link has been sent.`
         );
+      } catch (err) {
+        setAuthError(classifyAuthError(err, 'reset'));
       } finally {
         setIsLoading(false);
       }
@@ -120,7 +145,15 @@ export const AuthView: React.FC<AuthViewProps> = ({
     }
 
     if (password.length < 6) {
-      setErrorMessage('Password must be at least 6 characters.');
+      const err = classifyAuthError(
+        {
+          code: 'auth/weak-password',
+          message: 'Password must be at least 6 characters.',
+        },
+        mode
+      );
+      setAuthError(err);
+      focusField('auth-password');
       return;
     }
 
@@ -139,11 +172,58 @@ export const AuthView: React.FC<AuthViewProps> = ({
         onAuthSuccess(session);
       }
     } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : 'Authentication failed.');
+      const classified = classifyAuthError(err, mode);
+      setAuthError(classified);
+      setAttemptCount((c) => c + 1);
+      if (classified.field === 'password') {
+        focusField('auth-password');
+      } else if (classified.field === 'email') {
+        focusField('auth-email');
+      }
     } finally {
       setIsLoading(false);
     }
   };
+
+  const handleEmailSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await executeEmailAuth();
+  };
+
+  const handleRecoveryAction = async () => {
+    if (!authError?.action) return;
+    switch (authError.action) {
+      case 'reset_password':
+        setMode('reset');
+        clearFeedback();
+        focusField('auth-email');
+        break;
+      case 'switch_to_signup':
+        setMode('signup');
+        clearFeedback();
+        break;
+      case 'switch_to_signin':
+        setMode('signin');
+        clearFeedback();
+        focusField('auth-password');
+        break;
+      case 'retry':
+        await executeEmailAuth();
+        break;
+      case 'focus_email':
+        focusField('auth-email');
+        break;
+      case 'focus_password':
+        focusField('auth-password');
+        break;
+      case 'focus_email_form':
+        focusField(email.trim() ? 'auth-password' : 'auth-email');
+        break;
+    }
+  };
+
+  const emailHasError = authError?.field === 'email';
+  const passwordHasError = authError?.field === 'password';
 
   return (
     <div
@@ -257,8 +337,7 @@ export const AuthView: React.FC<AuthViewProps> = ({
                   type="button"
                   onClick={() => {
                     setMode('signin');
-                    setErrorMessage(null);
-                    setStatusMessage(null);
+                    clearFeedback();
                   }}
                   className={`rounded-lg py-2.5 transition-colors ${
                     mode === 'signin'
@@ -272,8 +351,7 @@ export const AuthView: React.FC<AuthViewProps> = ({
                   type="button"
                   onClick={() => {
                     setMode('signup');
-                    setErrorMessage(null);
-                    setStatusMessage(null);
+                    clearFeedback();
                   }}
                   className={`rounded-lg py-2.5 transition-colors ${
                     mode === 'signup'
@@ -292,8 +370,7 @@ export const AuthView: React.FC<AuthViewProps> = ({
                   type="button"
                   onClick={() => {
                     setMode('signin');
-                    setErrorMessage(null);
-                    setStatusMessage(null);
+                    clearFeedback();
                   }}
                   className="inline-flex items-center gap-1 text-xs font-semibold text-[#3B3FA8] hover:underline dark:text-[#D9A441]"
                 >
@@ -339,13 +416,71 @@ export const AuthView: React.FC<AuthViewProps> = ({
               </>
             )}
 
-            {errorMessage && (
+            {/* Structured Diagnostic Error Banner */}
+            {authError && (
               <div
                 role="alert"
-                className="mb-4 flex items-start gap-2 rounded-xl border border-[#C84B31] bg-[#C84B31]/10 p-3 text-xs text-[#C84B31]"
+                aria-live="assertive"
+                className={`mb-5 rounded-xl border border-[#C84B31] p-3.5 text-xs ${
+                  isDark
+                    ? 'bg-[#C84B31]/15 text-[#FAF6EC]'
+                    : 'bg-[#C84B31]/10 text-[#0F1226]'
+                }`}
               >
-                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-                <span>{errorMessage}</span>
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-start gap-2">
+                    <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-[#C84B31]" />
+                    <div>
+                      <div className="font-bold text-[#C84B31] dark:text-[#FF8A70]">
+                        {authError.title}
+                      </div>
+                      <p className="mt-1 leading-relaxed opacity-90">{authError.message}</p>
+                    </div>
+                  </div>
+                  <span className="shrink-0 rounded border border-[#C84B31]/40 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-[#C84B31] dark:text-[#FF8A70]">
+                    {authError.code}
+                  </span>
+                </div>
+
+                {authError.suggestion && (
+                  <p className="mt-2 border-t border-[#C84B31]/20 pt-2 pl-6 text-[11px] leading-relaxed opacity-85">
+                    <span className="font-semibold">Next step:</span> {authError.suggestion}
+                    {attemptCount >= 2 && mode === 'signin'
+                      ? ' Multiple failed sign-in attempts detected — consider resetting your password or creating a new account if you have not registered yet.'
+                      : ''}
+                  </p>
+                )}
+
+                {authError.actionLabel && (
+                  <div className="mt-3 flex flex-wrap items-center gap-2 pl-6">
+                    <button
+                      type="button"
+                      onClick={handleRecoveryAction}
+                      disabled={isLoading}
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-[#C84B31] px-3 py-1.5 text-[11px] font-semibold text-[#FAF6EC] transition-colors hover:bg-[#b03e26] disabled:opacity-50"
+                    >
+                      {authError.action === 'retry' && <RefreshCw className="h-3 w-3" />}
+                      {authError.action === 'reset_password' && <KeyRound className="h-3 w-3" />}
+                      {authError.action === 'switch_to_signup' && <UserPlus className="h-3 w-3" />}
+                      {authError.action === 'switch_to_signin' && <LogIn className="h-3 w-3" />}
+                      <span>{authError.actionLabel}</span>
+                    </button>
+
+                    {mode === 'signin' && authError.action !== 'switch_to_signup' && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setMode('signup');
+                          clearFeedback();
+                        }}
+                        className="inline-flex items-center gap-1 rounded-lg border border-current/20 px-2.5 py-1.5 text-[11px] font-medium hover:bg-current/5"
+                      >
+                        <UserPlus className="h-3 w-3" />
+                        <span>New user? Create Free Account</span>
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 
@@ -360,7 +495,7 @@ export const AuthView: React.FC<AuthViewProps> = ({
             )}
 
             {/* Email & Password Form */}
-            <form onSubmit={handleEmailSubmit} className="space-y-4 text-xs">
+            <form onSubmit={handleEmailSubmit} className="space-y-4 text-xs" noValidate>
               {mode === 'signup' && (
                 <>
                   <div>
@@ -419,13 +554,19 @@ export const AuthView: React.FC<AuthViewProps> = ({
                     id="auth-email"
                     type="email"
                     required
+                    aria-invalid={emailHasError}
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    onChange={(e) => {
+                      setEmail(e.target.value);
+                      if (emailHasError) setAuthError(null);
+                    }}
                     placeholder="you@company.com"
-                    className={`w-full rounded-xl border py-2.5 pr-3.5 pl-10 text-sm ${
-                      isDark
-                        ? 'border-white/15 bg-[#0E1030] text-[#FAF6EC]'
-                        : 'border-[#0F1226]/15 bg-[#FAF6EC]/50 text-[#0F1226]'
+                    className={`w-full rounded-xl border py-2.5 pr-3.5 pl-10 text-sm transition-colors ${
+                      emailHasError
+                        ? 'border-[#C84B31] ring-1 ring-[#C84B31]'
+                        : isDark
+                          ? 'border-white/15 bg-[#0E1030] text-[#FAF6EC]'
+                          : 'border-[#0F1226]/15 bg-[#FAF6EC]/50 text-[#0F1226]'
                     }`}
                   />
                 </div>
@@ -442,8 +583,7 @@ export const AuthView: React.FC<AuthViewProps> = ({
                         type="button"
                         onClick={() => {
                           setMode('reset');
-                          setErrorMessage(null);
-                          setStatusMessage(null);
+                          clearFeedback();
                         }}
                         className="font-medium text-[#3B3FA8] hover:underline dark:text-[#D9A441]"
                       >
@@ -458,13 +598,19 @@ export const AuthView: React.FC<AuthViewProps> = ({
                       type={showPassword ? 'text' : 'password'}
                       required
                       minLength={6}
+                      aria-invalid={passwordHasError}
                       value={password}
-                      onChange={(e) => setPassword(e.target.value)}
+                      onChange={(e) => {
+                        setPassword(e.target.value);
+                        if (passwordHasError) setAuthError(null);
+                      }}
                       placeholder="At least 6 characters"
-                      className={`w-full rounded-xl border py-2.5 pr-10 pl-10 text-sm ${
-                        isDark
-                          ? 'border-white/15 bg-[#0E1030] text-[#FAF6EC]'
-                          : 'border-[#0F1226]/15 bg-[#FAF6EC]/50 text-[#0F1226]'
+                      className={`w-full rounded-xl border py-2.5 pr-10 pl-10 text-sm transition-colors ${
+                        passwordHasError
+                          ? 'border-[#C84B31] ring-1 ring-[#C84B31]'
+                          : isDark
+                            ? 'border-white/15 bg-[#0E1030] text-[#FAF6EC]'
+                            : 'border-[#0F1226]/15 bg-[#FAF6EC]/50 text-[#0F1226]'
                       }`}
                     />
                     <button
@@ -490,7 +636,7 @@ export const AuthView: React.FC<AuthViewProps> = ({
               >
                 <span>
                   {isLoading
-                    ? 'Please wait…'
+                    ? 'Verifying credentials…'
                     : mode === 'signup'
                       ? 'Create Account & Open Studio'
                       : mode === 'reset'
@@ -510,7 +656,7 @@ export const AuthView: React.FC<AuthViewProps> = ({
                       type="button"
                       onClick={() => {
                         setMode('signup');
-                        setErrorMessage(null);
+                        clearFeedback();
                       }}
                       className="font-semibold text-[#3B3FA8] hover:underline dark:text-[#D9A441]"
                     >
@@ -524,7 +670,7 @@ export const AuthView: React.FC<AuthViewProps> = ({
                       type="button"
                       onClick={() => {
                         setMode('signin');
-                        setErrorMessage(null);
+                        clearFeedback();
                       }}
                       className="font-semibold text-[#3B3FA8] hover:underline dark:text-[#D9A441]"
                     >

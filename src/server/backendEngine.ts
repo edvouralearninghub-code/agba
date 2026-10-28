@@ -91,6 +91,93 @@ export interface StoredKeyInternal extends MaskedModelKeyRecord {
   envelope: EncryptedSecretEnvelope;
 }
 
+export interface CustomTableColumn {
+  name: string;
+  type: 'text' | 'number' | 'boolean' | 'timestamp' | 'json';
+  required?: boolean;
+}
+
+export interface CustomDatabaseTable {
+  id: string;
+  workspace_id: string;
+  tableName: string;
+  description: string;
+  columns: CustomTableColumn[];
+  rows: Record<string, unknown>[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface GeneratedWebAppRecord {
+  id: string;
+  workspace_id: string;
+  slug: string;
+  title: string;
+  description: string;
+  templateType: 'fintech' | 'ecommerce' | 'saas' | 'agency' | 'custom';
+  primaryColor: string;
+  currency: 'NGN' | 'USD';
+  htmlCode: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type OutboundEmailProviderId =
+  | 'agba_relay'
+  | 'resend'
+  | 'brevo'
+  | 'sendgrid'
+  | 'postmark';
+
+export type InboundEmailProviderId =
+  | 'agba_inbound'
+  | 'resend_inbound'
+  | 'sendgrid_parse'
+  | 'postmark_inbound'
+  | 'mailgun_routes';
+
+export interface EmailProviderConfigRecord {
+  workspace_id: string;
+  outboundProvider: OutboundEmailProviderId;
+  inboundProvider: InboundEmailProviderId;
+  fromEmail: string;
+  fromName: string;
+  replyToEmail: string;
+  maskedApiKey?: string;
+  envelope?: EncryptedSecretEnvelope;
+  autoReplyEnabled: boolean;
+  updatedAt: string;
+}
+
+export interface OutboundEmailRecord {
+  id: string;
+  workspace_id: string;
+  provider: OutboundEmailProviderId;
+  mode: 'single' | 'broadcast';
+  from: string;
+  recipients: string[];
+  subject: string;
+  body: string;
+  status: 'delivered' | 'queued_relay' | 'failed';
+  providerMessageId: string;
+  deliveryNote: string;
+  createdAt: string;
+}
+
+export interface InboundEmailRecord {
+  id: string;
+  workspace_id: string;
+  provider: InboundEmailProviderId;
+  from: string;
+  fromName: string;
+  to: string;
+  subject: string;
+  body: string;
+  status: 'unread' | 'replied' | 'archived';
+  aiReplyBody?: string;
+  receivedAt: string;
+}
+
 interface PersistentDatabaseSchema {
   workspaces: Workspace[];
   modelKeys: StoredKeyInternal[];
@@ -102,6 +189,11 @@ interface PersistentDatabaseSchema {
   customFreeStackEntries?: FreeStackEntry[];
   updatedFreeStackEntries?: Record<string, FreeStackEntry>;
   deletedFreeStackIds?: string[];
+  customTables?: CustomDatabaseTable[];
+  generatedWebApps?: GeneratedWebAppRecord[];
+  emailConfigs?: EmailProviderConfigRecord[];
+  outboundEmails?: OutboundEmailRecord[];
+  inboundEmails?: InboundEmailRecord[];
 }
 
 const DATA_DIR = path.join(process.cwd(), 'data');
@@ -179,6 +271,21 @@ export class AgbaSelfHostedBackend {
         }
         if (!parsed.deletedFreeStackIds) {
           parsed.deletedFreeStackIds = [];
+        }
+        if (!parsed.customTables) {
+          parsed.customTables = [];
+        }
+        if (!parsed.generatedWebApps) {
+          parsed.generatedWebApps = [];
+        }
+        if (!parsed.emailConfigs) {
+          parsed.emailConfigs = [];
+        }
+        if (!parsed.outboundEmails) {
+          parsed.outboundEmails = [];
+        }
+        if (!parsed.inboundEmails) {
+          parsed.inboundEmails = [];
         }
         return parsed;
       }
@@ -675,8 +782,6 @@ export class AgbaSelfHostedBackend {
       'usr_attacker_2',
     ]);
     const reservedFixtureWorkspaces = new Set([
-      'ws_trendtactics_lagos',
-      'ws_savannah_labs',
       'ws_kobo_ventures',
       'ws_1',
     ]);
@@ -685,14 +790,14 @@ export class AgbaSelfHostedBackend {
       return;
     }
 
-    if (workspaceId === 'ws_trendtactics_lagos') {
-      this.membershipRegistry.registerOwner('ws_trendtactics_lagos', userId);
-      this.membershipRegistry.registerOwner('ws_trendtactics_lagos', 'usr_akinola_01');
-      this.seedStarterChunksForWorkspace('ws_trendtactics_lagos');
+    if (workspaceId === 'ws_trendtactics_lagos' || workspaceId === 'ws_savannah_labs') {
+      this.membershipRegistry.registerOwner(workspaceId, userId);
+      this.membershipRegistry.registerOwner(workspaceId, 'usr_akinola_01');
+      this.seedStarterChunksForWorkspace(workspaceId);
       return;
     }
 
-    if (!reservedFixtureWorkspaces.has(workspaceId) && workspaceId.startsWith('ws_')) {
+    if (!reservedFixtureWorkspaces.has(workspaceId)) {
       const existing = this.state.workspaces.find((w) => w.id === workspaceId);
       if (!existing) {
         const readableName = workspaceId
@@ -809,6 +914,21 @@ export class AgbaSelfHostedBackend {
     return masked;
   }
 
+  public deleteModelKey(ctx: TenantContext, keyId: string): void {
+    if (ctx.role !== 'owner' && ctx.role !== 'admin') {
+      throw new CrossTenantAccessError('Only workspace owners or admins can delete API keys.');
+    }
+    const target = this.state.modelKeys.find((k) => k.id === keyId);
+    if (target && target.workspace_id !== ctx.workspace_id) {
+      throw new CrossTenantAccessError('Cannot delete an API key belonging to another workspace.');
+    }
+    this.state.modelKeys = this.state.modelKeys.filter(
+      (k) => !(k.id === keyId && k.workspace_id === ctx.workspace_id)
+    );
+    void this.appwriteBridge.deleteRow('byok_keys', keyId);
+    this.persist();
+  }
+
   public getDecryptedKeyForProvider(ctx: TenantContext, provider: ModelProvider): string | null {
     const candidates = this.state.modelKeys.filter(
       (k) => k.workspace_id === ctx.workspace_id && k.provider === provider
@@ -918,6 +1038,66 @@ export class AgbaSelfHostedBackend {
     };
   }
 
+  public deleteRagDocumentChunk(ctx: TenantContext, chunkOrDocId: string): number {
+    if (ctx.role === 'viewer') {
+      throw new CrossTenantAccessError('Viewer role cannot delete RAG documents.');
+    }
+    const before = this.state.vectorChunks.length;
+    this.state.vectorChunks = this.state.vectorChunks.filter(
+      (c) =>
+        !(
+          c.workspace_id === ctx.workspace_id &&
+          (c.id === chunkOrDocId || c.documentId === chunkOrDocId)
+        )
+    );
+    const removed = before - this.state.vectorChunks.length;
+    this.persist();
+    return removed;
+  }
+
+  public dispatchCustomNotification(
+    ctx: TenantContext,
+    input: {
+      channel: 'in-app' | 'email' | 'sms';
+      workflowTrigger:
+        | 'welcome'
+        | 'workflow-run-failure'
+        | 'quota-warning'
+        | 'payment-receipt'
+        | 'document-indexed';
+      recipient: string;
+      title: string;
+      body: string;
+    }
+  ): NotificationRecord {
+    if (ctx.role === 'viewer') {
+      throw new CrossTenantAccessError('Viewer role cannot dispatch workspace notifications.');
+    }
+    const rec: NotificationRecord = {
+      id: `notif_${crypto.randomUUID().slice(0, 10)}`,
+      workspace_id: ctx.workspace_id,
+      workflowTrigger: input.workflowTrigger,
+      channel: input.channel,
+      title: `${input.title.trim()} (${input.recipient.trim()})`,
+      body: input.body.trim(),
+      read: false,
+      createdAt: new Date().toISOString(),
+    };
+    this.state.notifications.unshift(rec);
+    void this.appwriteBridge.upsertRow('notifications', rec.id, {
+      id: rec.id,
+      workspace_id: rec.workspace_id,
+      workflowTrigger: rec.workflowTrigger,
+      channel: rec.channel,
+      title: rec.title,
+      body: rec.body,
+      read: rec.read,
+      createdAt: rec.createdAt,
+    });
+    this.persist();
+    return rec;
+  }
+
   public queryVectorsWithCosineSimilarity(
     ctx: TenantContext,
     params: { workspace_id: string; query: string; topK?: number }
@@ -1021,5 +1201,529 @@ export class AgbaSelfHostedBackend {
     });
     this.persist();
     return ws;
+  }
+
+  // ============================================================================
+  // SUPABASE-STYLE DATABASE & CUSTOM REST API STUDIO
+  // ============================================================================
+
+  private ensureStarterTablesForWorkspace(workspaceId: string): void {
+    if (!this.state.customTables) {
+      this.state.customTables = [];
+    }
+    const existing = this.state.customTables.filter((t) => t.workspace_id === workspaceId);
+    if (existing.length > 0) return;
+
+    const now = new Date().toISOString();
+    const customersTable: CustomDatabaseTable = {
+      id: `tbl_customers_${workspaceId}`,
+      workspace_id: workspaceId,
+      tableName: 'customers',
+      description: 'Customer accounts, subscription plans, and onboarding status',
+      columns: [
+        { name: 'id', type: 'text', required: true },
+        { name: 'full_name', type: 'text', required: true },
+        { name: 'email', type: 'text', required: true },
+        { name: 'plan_tier', type: 'text', required: true },
+        { name: 'mrr_ngn', type: 'number', required: false },
+        { name: 'verified', type: 'boolean', required: false },
+        { name: 'created_at', type: 'timestamp', required: true },
+      ],
+      rows: [
+        {
+          id: 'cus_01',
+          full_name: 'Tunde Bakare',
+          email: 'tunde.bakare@kobosme.ng',
+          plan_tier: 'Builder',
+          mrr_ngn: 15000,
+          verified: true,
+          created_at: now,
+        },
+        {
+          id: 'cus_02',
+          full_name: 'Amaka Okafor',
+          email: 'amaka@lagoslogistics.com',
+          plan_tier: 'Team & Agency',
+          mrr_ngn: 45000,
+          verified: true,
+          created_at: now,
+        },
+        {
+          id: 'cus_03',
+          full_name: 'Ibrahim Musa',
+          email: 'ibrahim@kanoagritech.org',
+          plan_tier: 'Free Starter',
+          mrr_ngn: 0,
+          verified: true,
+          created_at: now,
+        },
+      ],
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    const ordersTable: CustomDatabaseTable = {
+      id: `tbl_orders_${workspaceId}`,
+      workspace_id: workspaceId,
+      tableName: 'orders',
+      description: 'Paystack & USD payment transactions and settlement ledger',
+      columns: [
+        { name: 'id', type: 'text', required: true },
+        { name: 'customer_email', type: 'text', required: true },
+        { name: 'item_name', type: 'text', required: true },
+        { name: 'amount_ngn', type: 'number', required: true },
+        { name: 'status', type: 'text', required: true },
+        { name: 'created_at', type: 'timestamp', required: true },
+      ],
+      rows: [
+        {
+          id: 'ord_901',
+          customer_email: 'tunde.bakare@kobosme.ng',
+          item_name: 'Annual AI Support Chatbot License',
+          amount_ngn: 150000,
+          status: 'settled',
+          created_at: now,
+        },
+        {
+          id: 'ord_902',
+          customer_email: 'amaka@lagoslogistics.com',
+          item_name: 'Custom WhatsApp & Email Automation Pack',
+          amount_ngn: 85000,
+          status: 'settled',
+          created_at: now,
+        },
+      ],
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    this.state.customTables.push(customersTable, ordersTable);
+    this.persist();
+  }
+
+  public getWorkspaceTables(ctx: TenantContext): CustomDatabaseTable[] {
+    this.ensureStarterTablesForWorkspace(ctx.workspace_id);
+    return (this.state.customTables || []).filter((t) => t.workspace_id === ctx.workspace_id);
+  }
+
+  public createCustomTable(
+    ctx: TenantContext,
+    input: {
+      tableName: string;
+      description?: string;
+      columns: CustomTableColumn[];
+    }
+  ): CustomDatabaseTable {
+    if (ctx.role === 'viewer') {
+      throw new CrossTenantAccessError('Viewer role cannot create database tables.');
+    }
+    this.ensureStarterTablesForWorkspace(ctx.workspace_id);
+    const cleanName = input.tableName
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9_]/g, '_')
+      .replace(/^_+|_+$/g, '');
+    if (!cleanName || cleanName.length < 2) {
+      throw new Error('Table name must contain at least 2 alphanumeric characters.');
+    }
+    const duplicate = (this.state.customTables || []).find(
+      (t) => t.workspace_id === ctx.workspace_id && t.tableName === cleanName
+    );
+    if (duplicate) {
+      throw new Error(`Table "${cleanName}" already exists in workspace "${ctx.workspace_id}".`);
+    }
+
+    const hasId = input.columns.some((c) => c.name === 'id');
+    const hasCreatedAt = input.columns.some((c) => c.name === 'created_at');
+    const normalizedCols: CustomTableColumn[] = [
+      ...(hasId ? [] : [{ name: 'id', type: 'text' as const, required: true }]),
+      ...input.columns.map((c) => ({
+        name: c.name.trim().toLowerCase().replace(/[^a-z0-9_]/g, '_'),
+        type: c.type,
+        required: Boolean(c.required),
+      })),
+      ...(hasCreatedAt ? [] : [{ name: 'created_at', type: 'timestamp' as const, required: true }]),
+    ];
+
+    const now = new Date().toISOString();
+    const newTable: CustomDatabaseTable = {
+      id: `tbl_${cleanName}_${crypto.randomUUID().slice(0, 6)}`,
+      workspace_id: ctx.workspace_id,
+      tableName: cleanName,
+      description: input.description?.trim() || `Custom workspace table (${cleanName})`,
+      columns: normalizedCols,
+      rows: [],
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    this.state.customTables!.push(newTable);
+    this.persist();
+    return newTable;
+  }
+
+  public insertTableRow(
+    ctx: TenantContext,
+    tableName: string,
+    rowData: Record<string, unknown>
+  ): { table: CustomDatabaseTable; insertedRow: Record<string, unknown> } {
+    if (ctx.role === 'viewer') {
+      throw new CrossTenantAccessError('Viewer role cannot insert database rows.');
+    }
+    this.ensureStarterTablesForWorkspace(ctx.workspace_id);
+    const table = (this.state.customTables || []).find(
+      (t) => t.workspace_id === ctx.workspace_id && t.tableName === tableName.toLowerCase()
+    );
+    if (!table) {
+      throw new Error(`Table "${tableName}" not found in workspace "${ctx.workspace_id}".`);
+    }
+
+    const now = new Date().toISOString();
+    const rowId =
+      typeof rowData.id === 'string' && rowData.id.trim()
+        ? rowData.id.trim()
+        : `row_${crypto.randomUUID().slice(0, 6)}`;
+
+    const insertedRow: Record<string, unknown> = {
+      id: rowId,
+      ...rowData,
+      created_at: rowData.created_at || now,
+    };
+
+    table.rows.unshift(insertedRow);
+    table.updatedAt = now;
+    this.persist();
+    return { table, insertedRow };
+  }
+
+  public deleteTableRow(
+    ctx: TenantContext,
+    tableName: string,
+    rowId: string
+  ): CustomDatabaseTable {
+    if (ctx.role === 'viewer') {
+      throw new CrossTenantAccessError('Viewer role cannot delete database rows.');
+    }
+    this.ensureStarterTablesForWorkspace(ctx.workspace_id);
+    const table = (this.state.customTables || []).find(
+      (t) => t.workspace_id === ctx.workspace_id && t.tableName === tableName.toLowerCase()
+    );
+    if (!table) {
+      throw new Error(`Table "${tableName}" not found in workspace "${ctx.workspace_id}".`);
+    }
+    table.rows = table.rows.filter((r) => String(r.id) !== rowId);
+    table.updatedAt = new Date().toISOString();
+    this.persist();
+    return table;
+  }
+
+  public deleteCustomTable(ctx: TenantContext, tableName: string): void {
+    if (ctx.role === 'viewer') {
+      throw new CrossTenantAccessError('Viewer role cannot drop database tables.');
+    }
+    this.state.customTables = (this.state.customTables || []).filter(
+      (t) => !(t.workspace_id === ctx.workspace_id && t.tableName === tableName.toLowerCase())
+    );
+    this.persist();
+  }
+
+  // ============================================================================
+  // AI WEBSITE & WEB APP BUILDER STUDIO
+  // ============================================================================
+
+  public getWorkspaceWebApps(ctx: TenantContext): GeneratedWebAppRecord[] {
+    if (!this.state.generatedWebApps) {
+      this.state.generatedWebApps = [];
+    }
+    return this.state.generatedWebApps.filter((s) => s.workspace_id === ctx.workspace_id);
+  }
+
+  public saveGeneratedWebApp(
+    ctx: TenantContext,
+    input: {
+      id?: string;
+      slug?: string;
+      title: string;
+      description: string;
+      templateType: 'fintech' | 'ecommerce' | 'saas' | 'agency' | 'custom';
+      primaryColor: string;
+      currency: 'NGN' | 'USD';
+      htmlCode: string;
+    }
+  ): GeneratedWebAppRecord {
+    if (ctx.role === 'viewer') {
+      throw new CrossTenantAccessError('Viewer role cannot publish websites or apps.');
+    }
+    if (!this.state.generatedWebApps) {
+      this.state.generatedWebApps = [];
+    }
+
+    const cleanSlug =
+      (input.slug || input.title)
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9-]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+        .slice(0, 48) || `app-${Date.now().toString(36)}`;
+
+    const now = new Date().toISOString();
+    const existingIdx = this.state.generatedWebApps.findIndex(
+      (s) =>
+        s.workspace_id === ctx.workspace_id &&
+        ((input.id && s.id === input.id) || s.slug === cleanSlug)
+    );
+
+    if (existingIdx >= 0) {
+      const updated: GeneratedWebAppRecord = {
+        ...this.state.generatedWebApps[existingIdx],
+        title: input.title.trim(),
+        description: input.description.trim(),
+        templateType: input.templateType,
+        primaryColor: input.primaryColor,
+        currency: input.currency,
+        htmlCode: input.htmlCode,
+        updatedAt: now,
+      };
+      this.state.generatedWebApps[existingIdx] = updated;
+      this.persist();
+      return updated;
+    }
+
+    const created: GeneratedWebAppRecord = {
+      id: `site_${crypto.randomUUID().slice(0, 8)}`,
+      workspace_id: ctx.workspace_id,
+      slug: cleanSlug,
+      title: input.title.trim(),
+      description: input.description.trim(),
+      templateType: input.templateType,
+      primaryColor: input.primaryColor,
+      currency: input.currency,
+      htmlCode: input.htmlCode,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    this.state.generatedWebApps.unshift(created);
+    this.persist();
+    return created;
+  }
+
+  public deleteGeneratedWebApp(ctx: TenantContext, siteId: string): void {
+    if (ctx.role === 'viewer') {
+      throw new CrossTenantAccessError('Viewer role cannot delete generated websites.');
+    }
+    this.state.generatedWebApps = (this.state.generatedWebApps || []).filter(
+      (s) => !(s.workspace_id === ctx.workspace_id && s.id === siteId)
+    );
+    this.persist();
+  }
+
+  public getPublishedWebAppBySlug(
+    workspaceSlugOrId: string,
+    siteSlug: string
+  ): GeneratedWebAppRecord | null {
+    const ws = this.getWorkspaceBySlugOrId(workspaceSlugOrId);
+    const targetWsId = ws ? ws.id : workspaceSlugOrId;
+    return (
+      (this.state.generatedWebApps || []).find(
+        (s) =>
+          (s.workspace_id === targetWsId || s.workspace_id === workspaceSlugOrId) &&
+          (s.slug === siteSlug || s.id === siteSlug)
+      ) || null
+    );
+  }
+
+  // ============================================================================
+  // OUTBOUND & INBOUND EMAIL ENGINE ACROSS THE BOARD
+  // ============================================================================
+
+  private ensureEmailSeedForWorkspace(workspaceId: string): EmailProviderConfigRecord {
+    if (!this.state.emailConfigs) this.state.emailConfigs = [];
+    if (!this.state.outboundEmails) this.state.outboundEmails = [];
+    if (!this.state.inboundEmails) this.state.inboundEmails = [];
+
+    let cfg = this.state.emailConfigs.find((c) => c.workspace_id === workspaceId);
+    if (!cfg) {
+      cfg = {
+        workspace_id: workspaceId,
+        outboundProvider: 'agba_relay',
+        inboundProvider: 'agba_inbound',
+        fromEmail: 'hello@trendtactics.ng',
+        fromName: 'AGBA Workspace Mailer',
+        replyToEmail: 'support@trendtactics.ng',
+        autoReplyEnabled: true,
+        updatedAt: new Date().toISOString(),
+      };
+      this.state.emailConfigs.push(cfg);
+    }
+
+    const existingInbound = this.state.inboundEmails.filter((m) => m.workspace_id === workspaceId);
+    if (existingInbound.length === 0) {
+      const now = new Date().toISOString();
+      this.state.inboundEmails.push(
+        {
+          id: `inb_${crypto.randomUUID().slice(0, 8)}`,
+          workspace_id: workspaceId,
+          provider: 'resend_inbound',
+          from: 'tunde.bakare@kobosme.ng',
+          fromName: 'Tunde Bakare (KoboSME)',
+          to: cfg.fromEmail,
+          subject: 'Question on Paystack T+1 Settlement & API Integration',
+          body: 'Hello team, we just activated the Builder plan for our Lagos SME cooperative. Can you confirm if Paystack NGN settlements happen automatically every T+1 business morning?',
+          status: 'unread',
+          receivedAt: now,
+        },
+        {
+          id: `inb_${crypto.randomUUID().slice(0, 8)}`,
+          workspace_id: workspaceId,
+          provider: 'sendgrid_parse',
+          from: 'amaka@lagoslogistics.com',
+          fromName: 'Amaka Okafor',
+          to: cfg.fromEmail,
+          subject: 'Requesting Custom Website & Database Setup for 25 Drivers',
+          body: 'Hi there, we want to use AGBA to host our dispatch tracker table and send automated SMS/email alerts to customers across Victoria Island and Ikeja.',
+          status: 'unread',
+          receivedAt: now,
+        }
+      );
+      this.persist();
+    }
+
+    return cfg;
+  }
+
+  public getWorkspaceEmailOverview(ctx: TenantContext): {
+    config: Omit<EmailProviderConfigRecord, 'envelope'>;
+    outbound: OutboundEmailRecord[];
+    inbound: InboundEmailRecord[];
+  } {
+    const cfg = this.ensureEmailSeedForWorkspace(ctx.workspace_id);
+    const { envelope: _env, ...safeConfig } = cfg;
+    return {
+      config: safeConfig,
+      outbound: (this.state.outboundEmails || []).filter(
+        (m) => m.workspace_id === ctx.workspace_id
+      ),
+      inbound: (this.state.inboundEmails || []).filter((m) => m.workspace_id === ctx.workspace_id),
+    };
+  }
+
+  public saveEmailProviderConfig(
+    ctx: TenantContext,
+    input: {
+      outboundProvider: OutboundEmailProviderId;
+      inboundProvider: InboundEmailProviderId;
+      fromEmail: string;
+      fromName: string;
+      replyToEmail: string;
+      rawApiKey?: string;
+      autoReplyEnabled: boolean;
+    }
+  ): Omit<EmailProviderConfigRecord, 'envelope'> {
+    if (ctx.role === 'viewer') {
+      throw new CrossTenantAccessError('Viewer role cannot modify email provider settings.');
+    }
+    const cfg = this.ensureEmailSeedForWorkspace(ctx.workspace_id);
+    cfg.outboundProvider = input.outboundProvider;
+    cfg.inboundProvider = input.inboundProvider;
+    cfg.fromEmail = input.fromEmail.trim();
+    cfg.fromName = input.fromName.trim();
+    cfg.replyToEmail = input.replyToEmail.trim();
+    cfg.autoReplyEnabled = input.autoReplyEnabled;
+    cfg.updatedAt = new Date().toISOString();
+
+    if (input.rawApiKey && input.rawApiKey.trim().length >= 6) {
+      cfg.envelope = encryptApiKey(input.rawApiKey.trim());
+      cfg.maskedApiKey = maskApiKey(input.rawApiKey.trim());
+    }
+
+    this.persist();
+    const { envelope: _env, ...safeConfig } = cfg;
+    return safeConfig;
+  }
+
+  public getDecryptedEmailProviderKey(workspaceId: string): string | null {
+    const cfg = this.ensureEmailSeedForWorkspace(workspaceId);
+    if (!cfg.envelope) return null;
+    try {
+      return decryptApiKey(cfg.envelope);
+    } catch {
+      return null;
+    }
+  }
+
+  public recordOutboundEmail(
+    ctx: TenantContext,
+    record: Omit<OutboundEmailRecord, 'id' | 'workspace_id' | 'createdAt'>
+  ): OutboundEmailRecord {
+    this.ensureEmailSeedForWorkspace(ctx.workspace_id);
+    const created: OutboundEmailRecord = {
+      id: `out_${crypto.randomUUID().slice(0, 8)}`,
+      workspace_id: ctx.workspace_id,
+      ...record,
+      createdAt: new Date().toISOString(),
+    };
+    this.state.outboundEmails!.unshift(created);
+    this.state.notifications.unshift({
+      id: `notif_${crypto.randomUUID().slice(0, 8)}`,
+      workspace_id: ctx.workspace_id,
+      workflowTrigger: 'welcome',
+      channel: 'email',
+      title: `Email Sent (${record.recipients.length} recipient${record.recipients.length === 1 ? '' : 's'}): ${record.subject}`,
+      body: `${record.deliveryNote} — To: ${record.recipients.slice(0, 3).join(', ')}`,
+      read: false,
+      createdAt: created.createdAt,
+    });
+    this.persist();
+    return created;
+  }
+
+  public receiveInboundEmail(
+    workspaceId: string,
+    input: {
+      provider?: InboundEmailProviderId;
+      from: string;
+      fromName?: string;
+      to?: string;
+      subject: string;
+      body: string;
+      aiReplyBody?: string;
+    }
+  ): InboundEmailRecord {
+    const cfg = this.ensureEmailSeedForWorkspace(workspaceId);
+    const created: InboundEmailRecord = {
+      id: `inb_${crypto.randomUUID().slice(0, 8)}`,
+      workspace_id: workspaceId,
+      provider: input.provider || cfg.inboundProvider,
+      from: input.from.trim(),
+      fromName: input.fromName?.trim() || input.from.split('@')[0] || 'Sender',
+      to: input.to?.trim() || cfg.fromEmail,
+      subject: input.subject.trim(),
+      body: input.body.trim(),
+      status: input.aiReplyBody ? 'replied' : 'unread',
+      aiReplyBody: input.aiReplyBody,
+      receivedAt: new Date().toISOString(),
+    };
+    this.state.inboundEmails!.unshift(created);
+    this.persist();
+    return created;
+  }
+
+  public markInboundEmailReplied(
+    ctx: TenantContext,
+    inboundId: string,
+    replyBody: string
+  ): InboundEmailRecord {
+    this.ensureEmailSeedForWorkspace(ctx.workspace_id);
+    const item = (this.state.inboundEmails || []).find(
+      (m) => m.workspace_id === ctx.workspace_id && m.id === inboundId
+    );
+    if (!item) {
+      throw new Error(`Inbound email "${inboundId}" not found.`);
+    }
+    item.status = 'replied';
+    item.aiReplyBody = replyBody;
+    this.persist();
+    return item;
   }
 }
